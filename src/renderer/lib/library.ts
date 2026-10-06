@@ -8,14 +8,14 @@ export const lib: Library = emptyLibrary()
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
 export async function loadLibrary() {
-  Object.assign(lib, await window.moveo.library.load())
+  Object.assign(lib, await window.movens.library.load())
   emit('library', undefined)
 }
 
 /** Call after mutating lib; persists shortly after and notifies the views */
 export function changed() {
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => window.moveo.library.save(structuredClone(lib)), 300)
+  saveTimer = setTimeout(() => window.movens.library.save(structuredClone(lib)), 300)
   emit('library', undefined)
 }
 
@@ -34,13 +34,14 @@ export const sequencesUsing = (posId: string) =>
   lib.sequences.filter(s => s.steps.some(st => st.type === 'move' && st.positionId === posId))
 
 // ── Import / export ──────────────────────────────────────────────────────────
-// File format: {kind:'moveo-link', positions, sequences}. A single exported
-// sequence carries the positions it uses.
+// File format: {kind:'movens-link', positions, sequences}. A single exported
+// sequence carries the positions it uses. Files exported before the rename
+// say 'moveo-link'.
 
 export function exportData(seq?: Sequence) {
-  if (!seq) return { kind: 'moveo-link', version: 1, positions: lib.positions, sequences: lib.sequences }
+  if (!seq) return { kind: 'movens-link', version: 1, positions: lib.positions, sequences: lib.sequences }
   const ids = new Set(seq.steps.flatMap(s => (s.type === 'move' ? [s.positionId] : [])))
-  return { kind: 'moveo-link', version: 1, positions: lib.positions.filter(p => ids.has(p.id)), sequences: [seq] }
+  return { kind: 'movens-link', version: 1, positions: lib.positions.filter(p => ids.has(p.id)), sequences: [seq] }
 }
 
 const isPosition = (p: any): p is Position =>
@@ -51,7 +52,7 @@ const isSequence = (s: any): s is Sequence =>
 /** Merge imported data; clashing ids get new ones. Returns counts or an error. */
 export function importData(data: any): { positions: number; sequences: number } | string {
   if (!data || data.error) return data?.error || 'Nothing to import'
-  if (data.kind !== 'moveo-link') return 'Not a Moveo Link file'
+  if (data.kind !== 'movens-link' && data.kind !== 'moveo-link') return 'Not a Movens Link file'
   const positions: Position[] = (data.positions || []).filter(isPosition)
   const sequences: Sequence[] = (data.sequences || []).filter(isSequence)
   const remap = new Map<string, string>()

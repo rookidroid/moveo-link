@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
-  <title>Moveo Link</title>
+  <title>Movens Link</title>
   <rect x="2" y="2" width="60" height="60" rx="12" fill="#2ec5d8"/>
   <g fill="none" stroke="#03161a" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 52H36M17 52L19 46H29L31 52" stroke-width="3.5"/>

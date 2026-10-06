@@ -1,5 +1,5 @@
 // Forward / inverse kinematics: a port of the firmware's kinematics.cpp.
-// Geometry and joint conventions must match moveo_config.h:
+// Geometry and joint conventions must match movens_config.h:
 //   frame origin on the J1 axis at the base mounting surface, +Z up,
 //   +X forward at J1 = 0; all joints 0 = arm pointing straight up.
 // Angles in degrees, lengths in mm.

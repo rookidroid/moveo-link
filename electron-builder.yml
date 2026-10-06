@@ -1,5 +1,5 @@
-appId: com.rookidroid.moveolink
-productName: Moveo Link
+appId: com.rookidroid.movenslink
+productName: Movens Link
 directories:
   output: dist
   buildResources: build

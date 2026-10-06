@@ -8,7 +8,7 @@ import { resolve } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 
 const root = resolve(import.meta.dirname, '..')
-const icon = readFileSync(resolve(root, 'logo/moveo-link-icon.svg'), 'utf8')
+const icon = readFileSync(resolve(root, 'logo/movens-link-icon.svg'), 'utf8')
 const small = readFileSync(resolve(root, 'logo/favicon.svg'), 'utf8')
 const icoSizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 

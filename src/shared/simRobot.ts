@@ -1,4 +1,4 @@
-// Simulated Moveo robot: the same REST API as the ESP32 firmware, with
+// Simulated Movens robot: the same REST API as the ESP32 firmware, with
 // steppers that move in real time. Used by the app's simulation mode (when
 // no robot is connected) and by the stand-alone mock server (scripts/).
 

@@ -47,7 +47,7 @@ export function initPositions() {
   })
   $('pos-export').addEventListener('click', async () => {
     if (!lib.positions.length) return showToast('Nothing to export', 'err')
-    if (await window.moveo.library.exportJson('moveo-library', exportData())) showToast('Library exported')
+    if (await window.movens.library.exportJson('movens-library', exportData())) showToast('Library exported')
   })
   $('pos-import').addEventListener('click', doImport)
 
@@ -198,7 +198,7 @@ async function remove(p: Position) {
 }
 
 async function doImport() {
-  const data = await window.moveo.library.importJson()
+  const data = await window.movens.library.importJson()
   if (data == null) return
   const r = importData(data)
   if (typeof r === 'string') return showToast(r, 'err')

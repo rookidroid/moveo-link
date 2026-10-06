@@ -1,9 +1,9 @@
 // Renderer only, in a plain browser, against the mock robot (npm run mock).
-// Robot requests go to /robot/* and are proxied to MOVEO_HOST.
+// Robot requests go to /robot/* and are proxied to MOVENS_HOST.
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
-const host = process.env.MOVEO_HOST || 'localhost:8080'
+const host = process.env.MOVENS_HOST || 'localhost:8080'
 
 export default defineConfig({
   root: 'src/renderer',

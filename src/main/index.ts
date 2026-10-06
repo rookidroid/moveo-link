@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { promises as fs } from 'node:fs'
+import { constants, promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import icon from '../../build/icon.png?asset'
@@ -18,7 +18,7 @@ function createWindow() {
     height: 900,
     minWidth: 980,
     minHeight: 640,
-    title: 'Moveo Link',
+    title: 'Movens Link',
     icon,
     backgroundColor: '#0b0d0f',
     autoHideMenuBar: true,
@@ -55,7 +55,7 @@ function registerIpc() {
     const r = await dialog.showSaveDialog(win!, {
       title: 'Export',
       defaultPath: String(name).replace(/[\\/:*?"<>|]+/g, '_') + '.json',
-      filters: [{ name: 'Moveo Link JSON', extensions: ['json'] }]
+      filters: [{ name: 'Movens Link JSON', extensions: ['json'] }]
     })
     if (r.canceled || !r.filePath) return false
     await fs.writeFile(r.filePath, JSON.stringify(data, null, 2), 'utf8')
@@ -66,7 +66,7 @@ function registerIpc() {
     const r = await dialog.showOpenDialog(win!, {
       title: 'Import',
       properties: ['openFile'],
-      filters: [{ name: 'Moveo Link JSON', extensions: ['json'] }]
+      filters: [{ name: 'Movens Link JSON', extensions: ['json'] }]
     })
     if (r.canceled || !r.filePaths[0]) return null
     try {
@@ -84,11 +84,21 @@ function registerIpc() {
   })
 }
 
+// The app was called Moveo Link: carry its library and settings over once
+async function migrateFromMoveo(dir: string) {
+  const old = join(app.getPath('appData'), 'Moveo Link')
+  await fs.mkdir(dir, { recursive: true })
+  for (const name of ['library.json', 'settings.json']) {
+    await fs.copyFile(join(old, name), join(dir, name), constants.COPYFILE_EXCL).catch(() => {})
+  }
+}
+
 app.whenReady().then(async () => {
+  await migrateFromMoveo(app.getPath('userData'))
   store = new JsonStore(app.getPath('userData'))
   settings = await store.loadSettings()
-  // Development override, e.g. MOVEO_HOST=localhost:8080 for the mock robot
-  if (process.env.MOVEO_HOST) settings.host = normalizeHost(process.env.MOVEO_HOST)
+  // Development override, e.g. MOVENS_HOST=localhost:8080 for the mock robot
+  if (process.env.MOVENS_HOST) settings.host = normalizeHost(process.env.MOVENS_HOST)
   registerIpc()
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })

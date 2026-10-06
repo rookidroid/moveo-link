@@ -42,7 +42,7 @@ async function main() {
   // every view drives the built-in simulated arm
   $('btnConn').addEventListener('click', async () => {
     if (state.mode === 'robot') return disconnect()
-    const host = await promptText('Connect to robot (join the moveo WiFi first)', state.host, 'Connect')
+    const host = await promptText('Connect to robot (join the movens WiFi first)', state.host, 'Connect')
     if (host) connect(host)
   })
   // Esc is the E-stop everywhere, even while typing in a field

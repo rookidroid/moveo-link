@@ -34,5 +34,5 @@ createServer((req: IncomingMessage, res: ServerResponse) => {
     send(res, r.status, r.data)
   })
 }).listen(port, () => {
-  console.log(`Mock Moveo on http://localhost:${port} (${uncalibrated ? 'uncalibrated' : 'calibrated'})`)
+  console.log(`Mock Movens on http://localhost:${port} (${uncalibrated ? 'uncalibrated' : 'calibrated'})`)
 })

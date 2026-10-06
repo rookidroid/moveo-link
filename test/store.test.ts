@@ -7,7 +7,7 @@ import { normalizeHost } from '../src/main/robot'
 import type { Library } from '../src/shared/types'
 
 const dirs: string[] = []
-const tmp = () => { const d = mkdtempSync(join(tmpdir(), 'moveo-link-')); dirs.push(d); return d }
+const tmp = () => { const d = mkdtempSync(join(tmpdir(), 'movens-link-')); dirs.push(d); return d }
 afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }) })
 
 describe('JsonStore', () => {
@@ -46,14 +46,14 @@ describe('normalizeHost', () => {
 
 describe('library import', () => {
   beforeAll(() => {
-    ;(globalThis as any).window = { moveo: { library: { save: async () => {} } } }
+    ;(globalThis as any).window = { movens: { library: { save: async () => {} } } }
   })
 
   it('merges files and remaps clashing ids', async () => {
     const { lib, importData } = await import('../src/renderer/lib/library')
     lib.positions.push({ id: 'p1', name: 'Mine', kind: 'joints', joints: { unit: 'deg', v: [0, 0, 0, 0, 0] }, gripper: null, updatedAt: 0 })
     const r = importData({
-      kind: 'moveo-link',
+      kind: 'movens-link',
       positions: [{ id: 'p1', name: 'Theirs', kind: 'pose', pose: { x: 1, y: 2, z: 3, pitch: 0 }, gripper: null, updatedAt: 0 }],
       sequences: [{ id: 's1', name: 'Seq', repeat: 1, updatedAt: 0, steps: [{ id: 'a', type: 'move', positionId: 'p1', speed: 50, dwellMs: 0 }] }]
     })
@@ -63,6 +63,7 @@ describe('library import', () => {
     expect(theirs.id).not.toBe('p1')
     const step = lib.sequences[0].steps[0]
     expect(step.type === 'move' && step.positionId).toBe(theirs.id)
-    expect(importData({ hello: 1 })).toBe('Not a Moveo Link file')
+    expect(importData({ hello: 1 })).toBe('Not a Movens Link file')
+    expect(importData({ kind: 'moveo-link', positions: [], sequences: [] })).toEqual({ positions: 0, sequences: 0 })
   })
 })

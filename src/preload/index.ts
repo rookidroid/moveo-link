@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { MoveoBridge } from '../shared/types'
+import type { MovensBridge } from '../shared/types'
 
-const bridge: MoveoBridge = {
+const bridge: MovensBridge = {
   api: (path, body) => ipcRenderer.invoke('robot:request', path, body),
   library: {
     load: () => ipcRenderer.invoke('library:load'),
@@ -15,4 +15,4 @@ const bridge: MoveoBridge = {
   }
 }
 
-contextBridge.exposeInMainWorld('moveo', bridge)
+contextBridge.exposeInMainWorld('movens', bridge)

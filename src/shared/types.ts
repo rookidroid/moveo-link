@@ -1,4 +1,4 @@
-// Shapes of the Moveo firmware REST API and of the moveo-link library.
+// Shapes of the Movens firmware REST API and of the movens-link library.
 
 export const NUM_JOINTS = 5
 export const SERVO_MIN = 700
@@ -90,8 +90,8 @@ export const emptyLibrary = (): Library => ({ version: 1, positions: [], sequenc
 export const uid = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 
-/** Bridge exposed by the preload script as window.moveo */
-export interface MoveoBridge {
+/** Bridge exposed by the preload script as window.movens */
+export interface MovensBridge {
   api(path: string, body?: unknown): Promise<ApiResult>
   library: {
     load(): Promise<Library>

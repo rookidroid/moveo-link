@@ -2,12 +2,12 @@
 // (UI development in a plain browser). Robot calls go through the Vite dev
 // proxy at /robot; the library lives in localStorage.
 
-import { emptyLibrary, type ApiResult, type Library, type MoveoBridge } from '@shared/types'
+import { emptyLibrary, type ApiResult, type Library, type MovensBridge } from '@shared/types'
 
 export function installWebBridge() {
-  if (window.moveo) return
-  const LIB = 'moveo.web.library'
-  const bridge: MoveoBridge = {
+  if (window.movens) return
+  const LIB = 'movens.web.library'
+  const bridge: MovensBridge = {
     async api(path, body): Promise<ApiResult> {
       try {
         const r = await fetch('/robot' + path, body === undefined
@@ -51,5 +51,5 @@ export function installWebBridge() {
       async set() { return { host: 'dev proxy' } }
     }
   }
-  window.moveo = bridge
+  window.movens = bridge
 }

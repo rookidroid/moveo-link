@@ -33,7 +33,7 @@ export function initSequences() {
     changed()
   })
   $('seq-import').addEventListener('click', async () => {
-    const data = await window.moveo.library.importJson()
+    const data = await window.movens.library.importJson()
     if (data == null) return
     const r = importData(data)
     if (typeof r === 'string') return showToast(r, 'err')
@@ -62,7 +62,7 @@ export function initSequences() {
   })
   $('seq-export').addEventListener('click', async () => {
     const s = current(); if (!s) return
-    if (await window.moveo.library.exportJson(s.name, exportData(s))) showToast(`${s.name} exported`)
+    if (await window.movens.library.exportJson(s.name, exportData(s))) showToast(`${s.name} exported`)
   })
   $('seq-del').addEventListener('click', async () => {
     const s = current(); if (!s) return

@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws:"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Moveo Link</title>
+<title>Movens Link</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 </head>
 <body>
@@ -18,7 +18,7 @@
       <circle cx="47" cy="16" r="2.25" class="bl-dot"/>
       <circle cx="24" cy="38" r="3.5" class="bl-joint"/><circle cx="34" cy="18" r="3.5" class="bl-joint"/><circle cx="48" cy="24" r="3" class="bl-joint"/>
     </svg>
-    <div class="brand-text"><span class="brand-mark">MOVEO</span><span class="brand-sub">LINK &middot; 5-AXIS ARM CONTROLLER</span></div>
+    <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">LINK &middot; 5-AXIS ARM CONTROLLER</span></div>
   </div>
   <nav class="nav" id="nav">
     <a href="#control" data-view="control">Control</a>
@@ -437,7 +437,7 @@
     <div class="card-head"><span class="idx">01</span><h2>Robot connection</h2><span class="spacer"></span>
       <span class="badge" id="set-mode">—</span></div>
     <form class="card-body" id="set-form">
-      <p class="hint">Moveo Link starts in <b>simulation</b>: every feature drives a virtual arm in the 3D view, so
+      <p class="hint">Movens Link starts in <b>simulation</b>: every feature drives a virtual arm in the 3D view, so
         positions and sequences can be prepared without the robot. Connect to switch to the real arm;
         disconnecting stops the arm and returns to simulation.</p>
       <div class="row">
@@ -451,14 +451,14 @@
       <details open>
         <summary>Connecting over WiFi</summary>
         <div class="dbody"><ul>
-          <li>The arm runs its own WiFi access point. Join the network <b>moveo</b> (password <b>moveo_1234</b>,
-            unless changed in <code>moveo_config.h</code>) from this computer.</li>
+          <li>The arm runs its own WiFi access point. Join the network <b>movens</b> (password <b>movens_1234</b>,
+            unless changed in <code>movens_config.h</code>) from this computer.</li>
           <li>The robot then answers at <b>192.168.4.1</b>. Use <b>localhost:8080</b> for the stand-alone mock
             robot (<code>npm run mock</code>).</li>
           <li>The simulated arm uses its own calibration; taught positions in degrees work on the real arm once
             its joints are calibrated to the same conventions.</li>
           <li>Joint-space positions and sequence speeds need firmware with the <code>/movejoints</code>
-            endpoint (the moveo repository's current <code>moveo_arduino</code>).</li>
+            endpoint (the movens repository's current <code>movens</code> firmware).</li>
         </ul></div>
       </details>
     </form>

@@ -3,10 +3,10 @@
 // adaptive /status polling, plus a tiny event bus that feeds every view.
 
 import { SimRobot } from '@shared/simRobot'
-import type { ApiResult, Calib, JointCal, MoveoBridge, Status } from '@shared/types'
+import type { ApiResult, Calib, JointCal, MovensBridge, Status } from '@shared/types'
 
 declare global {
-  interface Window { moveo: MoveoBridge }
+  interface Window { movens: MovensBridge }
 }
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
@@ -26,11 +26,11 @@ export const esc = (s: string) =>
 
 // ── Per-user UI preferences (never robot state) ─────────────────────────────
 export function pref<T>(key: string, def: T): T {
-  try { const v = localStorage.getItem('moveo.' + key); return v == null ? def : JSON.parse(v) }
+  try { const v = localStorage.getItem('movens.' + key); return v == null ? def : JSON.parse(v) }
   catch { return def }
 }
 export function setPref(key: string, v: unknown) {
-  try { localStorage.setItem('moveo.' + key, JSON.stringify(v)) } catch { /* storage unavailable */ }
+  try { localStorage.setItem('movens.' + key, JSON.stringify(v)) } catch { /* storage unavailable */ }
 }
 
 // ── Event bus ────────────────────────────────────────────────────────────────
@@ -112,13 +112,13 @@ export function renderConn() {
 export async function connect(host?: string): Promise<boolean> {
   if (connecting) return false
   if (host) {
-    const s = await window.moveo.settings.set({ host })
+    const s = await window.movens.settings.set({ host })
     setHost(s.host)
   }
   if (state.mode === 'robot') await switchMode('sim')
   connecting = true
   renderConn()
-  const r = await window.moveo.api('/status')
+  const r = await window.movens.api('/status')
   connecting = false
   if (!r.ok) {
     renderConn()
@@ -167,7 +167,7 @@ export async function request<T = any>(path: string, body?: unknown): Promise<Ap
       ? { ok: true, status: r.status, data: r.data }
       : { ok: false, status: r.status, data: r.data, error: r.data?.error || `HTTP ${r.status}` }
   }
-  const r = await window.moveo.api(path, body)
+  const r = await window.movens.api(path, body)
   if (state.mode === 'robot') setConnected(r.status !== 0)  // still connected to the same target
   return r
 }

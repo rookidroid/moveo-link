@@ -12,10 +12,10 @@ function setRes(text: string, err = false) {
 /** Ping the robot without leaving the current mode */
 async function test() {
   const host = $<HTMLInputElement>('set-host').value.trim()
-  if (host && host !== state.host) setHost((await window.moveo.settings.set({ host })).host)
+  if (host && host !== state.host) setHost((await window.movens.settings.set({ host })).host)
   setRes(`Testing ${state.host}…`)
   const t0 = performance.now()
-  const r = await window.moveo.api('/status')
+  const r = await window.movens.api('/status')
   const ms = Math.round(performance.now() - t0)
   if (!r.ok) return setRes(`✕ ${state.host}: ${r.error}`, true)
   const d = r.data as Status
@@ -32,7 +32,7 @@ function renderMode() {
 }
 
 export async function initSettings() {
-  const s = await window.moveo.settings.get()
+  const s = await window.movens.settings.get()
   setHost(s.host)
   $<HTMLInputElement>('set-host').value = s.host
   $('set-form').addEventListener('submit', async e => {

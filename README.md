@@ -1,14 +1,14 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logo/moveo-link-logo-dark.svg">
-    <img src="logo/moveo-link-logo.svg" alt="Moveo Link" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="logo/movens-link-logo-dark.svg">
+    <img src="logo/movens-link-logo.svg" alt="Movens Link" width="420">
   </picture>
 </p>
 
-# Moveo Link
+# Movens Link
 
-Desktop controller for the [Moveo](https://github.com/rookidroid/moveo) 5-axis robot arm over WiFi.
-It talks to the ESP32 firmware's REST API (`FIRMWARE/moveo_arduino`) and adds positions, sequences and a
+Desktop controller for the [Movens](https://github.com/rookidroid/movens) 5-axis robot arm over WiFi.
+It talks to the ESP32 firmware's REST API (`FIRMWARE/movens`) and adds positions, sequences and a
 3D view with mouse teleoperation.
 
 ![Control view](docs/control.png)
@@ -51,13 +51,13 @@ the robot (it never silently switches to the simulation).
 ## Requirements
 
 - The robot firmware with the `POST /movejoints` endpoint and the `speed` option on `/movepose` (current
-  `moveo_arduino`). Older firmware still works for everything except joint-space positions and sequence speeds.
-- To connect, join the arm's WiFi access point **moveo** (password `moveo_1234`), press **Connect** and
+  `movens` firmware). Older firmware still works for everything except joint-space positions and sequence speeds.
+- To connect, join the arm's WiFi access point **movens** (password `movens_1234`), press **Connect** and
   confirm the address (default `192.168.4.1`, remembered between sessions).
 
 ## Joint directions
 
-Angles are in degrees and match the firmware's arm model (`moveo_config.h`). With every joint at 0° the arm
+Angles are in degrees and match the firmware's arm model (`movens_config.h`). With every joint at 0° the arm
 points straight up. Each diagram below shows a base pose (solid) and the same pose with one joint turned
 **+** (blue) and **−** (orange). Calibrate each joint so that its + direction matches. J1 only turns through
 0° to 180°, so its diagram starts at 90°.
@@ -99,15 +99,15 @@ npm run diagrams      # redraw the joint direction diagrams in docs/joints/ from
 npm run dist          # Windows installer + portable exe in dist/
 ```
 
-The positions and sequences library is stored in `%APPDATA%\Moveo Link\library.json`.
+The positions and sequences library is stored in `%APPDATA%\Movens Link\library.json`.
 
 ### Layout
 
 | Path | |
 |---|---|
 | `src/main/` | Electron main process: robot HTTP client (`robot.ts`), JSON storage (`store.ts`) |
-| `src/preload/` | `window.moveo` bridge (IPC) |
-| `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `moveo_config.h` |
+| `src/preload/` | `window.movens` bridge (IPC) |
+| `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `movens_config.h` |
 | `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`), sequence runner, library |
 | `src/renderer/views/` | Control, Positions, Sequences, Calibrate, Settings |
 | `src/shared/simRobot.ts` | Simulated robot (same REST API as the firmware), used by simulation mode and the mock |

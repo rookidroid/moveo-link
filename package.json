@@ -1,8 +1,8 @@
 {
-  "name": "moveo-link",
-  "productName": "Moveo Link",
+  "name": "movens-link",
+  "productName": "Movens Link",
   "version": "0.1.0",
-  "description": "Desktop controller for the Moveo robot arm over WiFi",
+  "description": "Desktop controller for the Movens robot arm over WiFi",
   "author": "rookidroid",
   "license": "MIT",
   "private": true,

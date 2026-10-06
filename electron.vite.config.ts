@@ -13,6 +13,7 @@ export default defineConfig({
     }
   },
   renderer: {
+    publicDir: resolve('logo'),
     resolve: { alias: { '@shared': resolve('src/shared') } }
   }
 })

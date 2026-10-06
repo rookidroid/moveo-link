@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import icon from '../../build/icon.png?asset'
 import type { Library, Settings } from '../shared/types'
 import { normalizeHost, robotRequest } from './robot'
 import { JsonStore } from './store'
@@ -18,6 +19,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     title: 'Moveo Link',
+    icon,
     backgroundColor: '#0b0d0f',
     autoHideMenuBar: true,
     webPreferences: {

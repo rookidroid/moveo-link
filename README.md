@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo/moveo-link-logo-dark.svg">
+    <img src="logo/moveo-link-logo.svg" alt="Moveo Link" width="420">
+  </picture>
+</p>
+
 # Moveo Link
 
 Desktop controller for the [Moveo](https://github.com/rookidroid/moveo) 5-axis robot arm over WiFi.

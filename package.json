@@ -17,6 +17,7 @@
     "mock": "tsx scripts/mock-robot.ts",
     "web": "vite --config vite.web.config.ts",
     "diagrams": "electron scripts/joint-diagrams/render.mjs",
+    "icons": "electron scripts/icons.mjs",
     "dist": "electron-vite build && electron-builder --win"
   },
   "dependencies": {

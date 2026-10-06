@@ -7,6 +7,7 @@ const host = process.env.MOVEO_HOST || 'localhost:8080'
 
 export default defineConfig({
   root: 'src/renderer',
+  publicDir: resolve('logo'),
   resolve: { alias: { '@shared': resolve('src/shared') } },
   server: {
     port: 5180,

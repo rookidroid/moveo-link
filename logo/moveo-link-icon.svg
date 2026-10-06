@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
+  <title>Moveo Link</title>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#00788a"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 52H36M17 52L19 46H29L31 52" stroke-width="3.5"/>
+    <path d="M24 46V38L34 18L48 24V30" stroke-width="5"/>
+    <path d="M41 31H55M41 31V38L44 41M55 31V38L52 41" stroke-width="3.5"/>
+    <path d="M47 11.5A4.5 4.5 0 0 1 51.5 16M47 7A9 9 0 0 1 56 16" stroke-width="3.5"/>
+  </g>
+  <circle cx="47" cy="16" r="2.25" fill="#ffffff"/>
+  <g fill="#00788a" stroke="#ffffff" stroke-width="2.5">
+    <circle cx="24" cy="38" r="3.5"/>
+    <circle cx="34" cy="18" r="3.5"/>
+    <circle cx="48" cy="24" r="3"/>
+  </g>
+</svg>

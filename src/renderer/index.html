@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws:"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Moveo Link</title>
+</head>
+<body>
+<header class="appbar" id="appbar">
+  <div class="brand"><span class="brand-mark">MOVEO</span><span class="brand-sub">LINK &middot; 5-AXIS ARM CONTROLLER</span></div>
+  <nav class="nav" id="nav">
+    <a href="#control" data-view="control">Control</a>
+    <a href="#positions" data-view="positions">Positions</a>
+    <a href="#sequences" data-view="sequences">Sequences</a>
+    <a href="#calibrate" data-view="calibrate">Calibrate</a>
+    <a href="#settings" data-view="settings">Settings</a>
+  </nav>
+  <div class="conn" title="Robot connection">
+    <span class="run-chip" id="run-chip" hidden></span>
+    <span class="led" id="dot"></span><span id="conn-status">Connecting</span>
+    <span class="conn-host" id="conn-host">virtual arm</span>
+    <button class="btn sm primary" id="btnConn" title="Connect to the robot over WiFi">Connect</button>
+  </div>
+  <button class="estop" id="btnStop" title="Stop all motors (Esc)">STOP <kbd>ESC</kbd></button>
+</header>
+
+<!-- ═════════════════════════ CONTROL ═════════════════════════ -->
+<main class="view layout control" id="view-control">
+    <section class="card area-3d">
+      <div class="card-head"><span class="idx">00</span><h2>3D view</h2></div>
+      <div class="a3-host" id="a3-control"></div>
+    </section>
+
+    <section class="card area-state">
+      <div class="card-head">
+        <span class="idx">01</span><h2>Arm state</h2><span class="spacer"></span>
+        <button class="btn sm" id="btnTeach" title="Save the current arm position to the library">&#43; Save position</button>
+        <button class="btn sm" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Go to origin</button>
+      </div>
+      <div class="card-body">
+        <div class="pose">
+          <div class="tile"><span class="k"><b class="ax-x">X</b>mm</span><span class="v" id="p-x">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-y">Y</b>mm</span><span class="v" id="p-y">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-z">Z</b>mm</span><span class="v" id="p-z">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-p">PITCH</b>&deg;</span><span class="v" id="p-pitch">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-p">YAW</b>&deg;</span><span class="v" id="p-yaw">—</span></div>
+        </div>
+        <div class="notice" id="pose-off" hidden>
+          Tool position is unknown until J1&ndash;J5 are calibrated. <a href="#calibrate">Open calibration &rarr;</a>
+        </div>
+        <div class="jlist" id="jlist"></div>
+      </div>
+    </section>
+
+    <section class="card area-ctrl">
+      <div class="card-head"><span class="idx">02</span><h2>Motion control</h2></div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="tool">Tool &middot; XYZ</button>
+        <button role="tab" data-tab="joints">Joints</button>
+      </div>
+
+      <div class="tabpanel" id="tab-tool" role="tabpanel">
+        <div class="notice" id="tool-lock" hidden>
+          Tool (XYZ) control needs all five joints calibrated. Use the <b>Joints</b> tab meanwhile, or
+          <a href="#calibrate">calibrate &rarr;</a>
+        </div>
+        <fieldset class="fs" id="tool-fs">
+          <div class="sub"><h3>Jog tool</h3><span class="spacer"></span>
+            <span class="lbl">Step</span><div id="seg-cart"></div></div>
+          <div class="jogpad">
+            <div class="padg">
+              <span class="lbl">Plane &middot; top view</span>
+              <div class="dpad">
+                <span></span>
+                <button type="button" class="jbtn" data-cart="x,1"><span class="ax-x">+X</span><small>Fwd</small></button>
+                <span></span>
+                <button type="button" class="jbtn" data-cart="y,1"><span class="ax-y">+Y</span><small>Left</small></button>
+                <div class="dpad-c"><span id="dpad-step">10</span><small>mm&middot;&deg;</small></div>
+                <button type="button" class="jbtn" data-cart="y,-1"><span class="ax-y">&minus;Y</span><small>Right</small></button>
+                <span></span>
+                <button type="button" class="jbtn" data-cart="x,-1"><span class="ax-x">&minus;X</span><small>Back</small></button>
+                <span></span>
+              </div>
+            </div>
+            <div class="padg">
+              <span class="lbl">Height</span>
+              <div class="vpair">
+                <button type="button" class="jbtn" data-cart="z,1"><span class="ax-z">+Z</span><small>Up</small></button>
+                <button type="button" class="jbtn" data-cart="z,-1"><span class="ax-z">&minus;Z</span><small>Down</small></button>
+              </div>
+            </div>
+            <div class="padg">
+              <span class="lbl">Pitch</span>
+              <div class="vpair">
+                <button type="button" class="jbtn" data-cart="pitch,1"><span class="ax-p">+P</span><small>Tip fwd</small></button>
+                <button type="button" class="jbtn" data-cart="pitch,-1"><span class="ax-p">&minus;P</span><small>Tip back</small></button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="rule"/>
+
+          <div class="sub"><h3>Go to pose</h3></div>
+          <form class="pform" id="cart-form">
+            <label class="field"><span class="ax-x">X</span><span class="inp"><input type="number" id="cart-x" value="300" step="any"/><i>mm</i></span></label>
+            <label class="field"><span class="ax-y">Y</span><span class="inp"><input type="number" id="cart-y" value="0" step="any"/><i>mm</i></span></label>
+            <label class="field"><span class="ax-z">Z</span><span class="inp"><input type="number" id="cart-z" value="200" step="any"/><i>mm</i></span></label>
+            <label class="field"><span>Pitch</span><span class="inp"><input type="number" id="cart-pitch" value="-90" step="any"/><i>&deg;</i></span></label>
+            <label class="field"><span>Yaw</span><span class="inp"><input type="number" id="cart-yaw" placeholder="auto" step="any"/><i>&deg;</i></span></label>
+          </form>
+          <p class="hint">Pitch &minus;90&deg; points the tool straight down. Leave yaw empty to keep the approach in the
+            arm's vertical plane.</p>
+          <div class="actions">
+            <button type="button" class="btn ghost" id="cart-fill">Use current</button>
+            <span class="grow"></span>
+            <button type="button" class="btn" id="cart-check">Check reach</button>
+            <button type="submit" class="btn primary" form="cart-form">Move &#9656;</button>
+          </div>
+          <div class="result" id="cart-sol"></div>
+        </fieldset>
+      </div>
+
+      <div class="tabpanel" id="tab-joints" role="tabpanel" hidden>
+        <div class="toolbar">
+          <div class="grp"><span class="lbl">Unit</span><div id="seg-unit"></div></div>
+          <div class="grp"><span class="lbl">Step</span><div id="seg-jstep"></div></div>
+        </div>
+        <div class="jctl" id="jctl"></div>
+        <details>
+          <summary>Motion settings</summary>
+          <div class="dbody">
+            <table class="tbl">
+              <thead><tr><th>Joint</th><th>Speed <span class="unit">steps/s</span></th><th>Accel <span class="unit">steps/s&sup2;</span></th></tr></thead>
+              <tbody id="cfg-body"></tbody>
+            </table>
+            <p class="hint">Changed values are outlined. Settings last until the robot restarts.</p>
+            <div class="actions"><span class="grow"></span>
+              <button class="btn ghost" id="cfg-revert">Revert</button>
+              <button class="btn primary" id="cfg-apply">Apply changes</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="card area-grip">
+      <div class="card-head">
+        <span class="idx">03</span><h2>Gripper &middot; J6 servo</h2><span class="spacer"></span>
+        <span class="big" id="servo-val">1500</span><span class="unit">&micro;s</span>
+      </div>
+      <div class="card-body">
+        <div>
+          <input type="range" id="servo" min="700" max="2300" step="10" value="1500" aria-label="Gripper pulse width"/>
+          <div class="scale"><span>700</span><span>1100</span><span>1500</span><span>1900</span><span>2300</span></div>
+        </div>
+        <div class="actions fill">
+          <button class="btn" data-servo="700">Min</button>
+          <button class="btn ghost" data-nudge="-50">&minus;50</button>
+          <button class="btn" data-servo="1500">Center</button>
+          <button class="btn ghost" data-nudge="50">+50</button>
+          <button class="btn" data-servo="2300">Max</button>
+        </div>
+      </div>
+    </section>
+</main>
+
+<!-- ═════════════════════════ POSITIONS ═════════════════════════ -->
+<main class="view layout wide" id="view-positions" hidden>
+  <div class="side">
+    <section class="card">
+      <div class="card-head">
+        <span class="idx">01</span><h2>Positions</h2><span class="spacer"></span>
+        <span class="lbl">Go speed</span><div id="seg-gospeed"></div>
+      </div>
+      <div class="card-body">
+        <div class="actions">
+          <button class="btn primary" id="pos-teach" title="Save where the arm is now">&#43; Teach current</button>
+          <button class="btn" id="pos-new-pose">&#43; New tool pose</button>
+          <span class="grow"></span>
+          <button class="btn ghost sm" id="pos-import">Import</button>
+          <button class="btn ghost sm" id="pos-export">Export all</button>
+        </div>
+        <div class="plist" id="plist"></div>
+        <p class="hint">Click a position to preview it as a ghost in the 3D view. <b>Go</b> moves all joints together
+          (joint positions) or through IK (tool poses). A gripper value is applied after the arm arrives.</p>
+      </div>
+    </section>
+
+    <section class="card" id="pos-editor" hidden>
+      <div class="card-head"><span class="idx">02</span><h2 id="pe-title">Edit position</h2></div>
+      <form class="card-body" id="pe-form">
+        <div class="row">
+          <label class="field grow2"><span>Name</span><input type="text" class="text" id="pe-name" maxlength="80"/></label>
+          <div class="field"><span>Kind</span><div id="pe-kind"></div></div>
+        </div>
+        <div id="pe-joints">
+          <div class="sub"><span class="lbl">Unit</span><div id="pe-unit"></div><span class="spacer"></span>
+            <span class="muted" id="pe-fk"></span></div>
+          <div class="pform" id="pe-jfields"></div>
+        </div>
+        <div id="pe-pose">
+          <div class="pform">
+            <label class="field"><span class="ax-x">X</span><span class="inp"><input type="number" step="any" id="pe-x"/><i>mm</i></span></label>
+            <label class="field"><span class="ax-y">Y</span><span class="inp"><input type="number" step="any" id="pe-y"/><i>mm</i></span></label>
+            <label class="field"><span class="ax-z">Z</span><span class="inp"><input type="number" step="any" id="pe-z"/><i>mm</i></span></label>
+            <label class="field"><span>Pitch</span><span class="inp"><input type="number" step="any" id="pe-pitch"/><i>&deg;</i></span></label>
+            <label class="field"><span>Yaw</span><span class="inp"><input type="number" step="any" id="pe-yaw" placeholder="auto"/><i>&deg;</i></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="pe-grip-on"/> Set gripper</label>
+          <label class="field"><span>Gripper</span><span class="inp"><input type="number" min="700" max="2300" step="10" id="pe-grip"/><i>&micro;s</i></span></label>
+          <label class="field grow2"><span>Note</span><input type="text" class="text" id="pe-note" maxlength="200"/></label>
+        </div>
+        <div class="result" id="pe-issues"></div>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="pe-from-arm">Use current arm</button>
+          <span class="grow"></span>
+          <button type="button" class="btn ghost" id="pe-cancel">Cancel</button>
+          <button type="submit" class="btn primary">&#10003; Save</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="card area-3d">
+      <div class="card-head"><span class="idx">03</span><h2>3D view</h2><span class="spacer"></span>
+        <span class="muted" id="pos-preview-name"></span></div>
+      <div class="a3-host tall" id="a3-positions"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ═════════════════════════ SEQUENCES ═════════════════════════ -->
+<main class="view layout wide" id="view-sequences" hidden>
+  <div class="side">
+    <section class="card">
+      <div class="card-head"><span class="idx">01</span><h2>Sequences</h2><span class="spacer"></span>
+        <button class="btn sm primary" id="seq-new">&#43; New</button>
+        <button class="btn sm ghost" id="seq-import">Import</button>
+      </div>
+      <div class="card-body"><div class="slist" id="slist"></div></div>
+    </section>
+
+    <section class="card" id="seq-editor" hidden>
+      <div class="card-head"><span class="idx">02</span><h2>Steps</h2><span class="spacer"></span>
+        <button class="btn sm ghost" id="seq-rename">Rename</button>
+        <button class="btn sm ghost" id="seq-dup">Duplicate</button>
+        <button class="btn sm ghost" id="seq-export">Export</button>
+        <button class="btn sm ghost danger-ink" id="seq-del">Delete</button>
+      </div>
+      <fieldset class="card-body fs" id="seq-fs">
+        <div class="row">
+          <label class="field"><span>Repeat</span><span class="inp"><input type="number" min="0" step="1" id="seq-repeat"/><i>&times;</i></span></label>
+          <p class="hint grow2">0 = loop until stopped. Drag rows by the handle to reorder.</p>
+        </div>
+        <ol class="steplist" id="steplist"></ol>
+        <div class="actions">
+          <button type="button" class="btn" id="add-move">&#43; Move</button>
+          <button type="button" class="btn" id="add-grip">&#43; Gripper</button>
+          <button type="button" class="btn" id="add-wait">&#43; Wait</button>
+        </div>
+      </fieldset>
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="card" id="seq-player">
+      <div class="card-head"><span class="idx">03</span><h2>Playback</h2><span class="spacer"></span>
+        <span class="badge" id="run-state">Idle</span></div>
+      <div class="card-body">
+        <div class="actions">
+          <button class="btn primary" id="run-start">&#9656; Run</button>
+          <button class="btn" id="run-from" title="Run from the selected step">&#9656; From selected</button>
+          <button class="btn" id="run-step" title="Run the selected step only">&#8677; Step</button>
+          <button class="btn" id="run-pause">&#10073;&#10073; Pause</button>
+          <button class="btn danger" id="run-stop">&#9632; Stop</button>
+          <span class="grow"></span>
+          <button class="btn ghost" id="run-validate">Validate</button>
+        </div>
+        <div class="progress"><div class="bar" id="run-bar"></div></div>
+        <div class="result" id="run-msg"></div>
+      </div>
+    </section>
+    <section class="card area-3d">
+      <div class="card-head"><span class="idx">04</span><h2>3D view &middot; tool path</h2></div>
+      <div class="a3-host" id="a3-sequences"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ═════════════════════════ CALIBRATE ═════════════════════════ -->
+<main class="view layout calib" id="view-calibrate" hidden>
+  <div class="side">
+    <section class="card area-pick">
+      <div class="card-head"><span class="idx">01</span><h2>Select joint</h2></div>
+      <div class="card-body"><div class="jpick" id="jpick" role="tablist"></div></div>
+    </section>
+
+    <section class="card area-live">
+      <div class="card-head">
+        <span class="idx">02</span><h2>Live &middot; <span id="cal-jname">J1 Base</span></h2><span class="spacer"></span>
+        <span class="led" id="cal-led" title="Moving"></span>
+      </div>
+      <div class="card-body">
+        <div class="readout2">
+          <div><span class="k">Steps</span><span class="v" id="cal-steps">—</span></div>
+          <div><span class="k">Angle &deg;</span><span class="v" id="cal-ang">—</span></div>
+        </div>
+        <div class="jogrow">
+          <button class="btn jog" id="cal-jog-neg">&minus; Jog</button>
+          <div id="seg-cal" aria-label="Jog step (steps)"></div>
+          <button class="btn jog" id="cal-jog-pos">+ Jog</button>
+        </div>
+        <p class="hint">Jog step is in motor steps. Press <b>Esc</b> or <b>STOP</b> at any time.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="card area-proc">
+    <div class="card-head">
+      <span class="idx">03</span><h2>Calibration procedure</h2><span class="spacer"></span>
+      <span class="badge" id="cal-state">—</span>
+    </div>
+    <ol class="steps">
+      <li class="step" id="st-1">
+        <div class="step-n">1</div>
+        <div class="step-b">
+          <h3>Set reference</h3>
+          <p class="hint">Put the joint on its alignment marks and enter the angle that pose represents (usually 0).
+            The current position becomes 0 steps.</p>
+          <div class="row">
+            <label class="field"><span>Alignment angle</span>
+              <span class="inp"><input type="number" id="cal-home" value="0" step="any"/><i>&deg;</i></span></label>
+            <button class="btn primary" id="cal-setref">Set reference</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="step" id="st-2">
+        <div class="step-n">2</div>
+        <div class="step-b">
+          <h3>Measure 90&deg;</h3>
+          <p class="hint">Jog until the joint is exactly 90&deg; from the alignment pose, then press the direction you
+            turned. Finish with small steps in one direction; if you overshoot, back off past 90&deg; and come in
+            again so backlash doesn't skew the reading.</p>
+          <div class="actions">
+            <button class="btn primary" id="cal-at90p">Joint is at +90&deg;</button>
+            <button class="btn" id="cal-at90n">Joint is at &minus;90&deg;</button>
+          </div>
+          <div class="fit" id="cal-fit"></div>
+        </div>
+      </li>
+
+      <li class="step" id="st-3">
+        <div class="step-n">3</div>
+        <div class="step-b">
+          <h3>Limits &amp; save</h3>
+          <label class="field"><span>Steps per degree (sign = direction)</span>
+            <span class="inp"><input type="number" id="cal-spd" value="0" step="any"/><i>st/&deg;</i></span></label>
+          <div class="lim-grid">
+            <div class="field"><span>Min</span>
+              <span class="inp"><input type="number" id="cal-min" value="-180" step="any"/><i>&deg;</i></span>
+              <button type="button" class="btn sm ghost" id="cal-usemin">&larr; Use current</button></div>
+            <div class="field"><span>Max</span>
+              <span class="inp"><input type="number" id="cal-max" value="180" step="any"/><i>&deg;</i></span>
+              <button type="button" class="btn sm ghost" id="cal-usemax">&larr; Use current</button></div>
+          </div>
+          <div class="actions">
+            <label class="check"><input type="checkbox" id="cal-lim"/> Enforce soft limits</label>
+            <span class="grow"></span>
+            <span class="badge warn" id="cal-dirty" hidden>Unsaved</span>
+            <button class="btn primary" id="cal-save">&#10003; Save to robot</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="step" id="st-4">
+        <div class="step-n">4</div>
+        <div class="step-b">
+          <h3>Verify</h3>
+          <div class="actions">
+            <button class="btn" id="cal-go90p">Turn to +90&deg;</button>
+            <button class="btn" id="cal-go90n">Turn to &minus;90&deg;</button>
+            <button class="btn ghost" id="cal-goref">Back to reference</button>
+          </div>
+          <p class="hint">Check 90&deg; with the same tool, then go back and check the alignment marks line up.
+            A consistent error at 90&deg; means redo step 2. Marks that don't line up again mean the motor is
+            skipping steps: lower speed/accel or raise the driver current.</p>
+        </div>
+      </li>
+    </ol>
+    <div class="card-body">
+      <details>
+        <summary>How to measure 90&deg; on each joint</summary>
+        <div class="dbody"><ul>
+          <li><b>J2, J3, J5 (pitch joints):</b> phone inclinometer app or a square on the link, e.g. vertical &rarr;
+            horizontal.</li>
+          <li><b>J1 base:</b> a square against the base, or 90&deg; marks on the base and the turntable.</li>
+          <li><b>J4 wrist roll:</b> with the forearm horizontal, an inclinometer on the flat face of the gripper
+            (level &rarr; vertical).</li>
+          <li>Turn in whichever direction is free; the button you press sets which way is positive.</li>
+          <li>Calibration is saved on the ESP32 and survives power cycles. The step counter does not: power on with
+            the arm on its alignment marks.</li>
+        </ul></div>
+      </details>
+      <details>
+        <summary>Angle conventions for tool (XYZ) control</summary>
+        <div class="dbody"><ul>
+          <li>The angles must match the arm model. Arm pointing straight up = all joints 0&deg;.</li>
+          <li><b>J1</b> positive counter-clockwise seen from above.</li>
+          <li><b>J2, J3, J5</b> positive bending forward (toward the reach).</li>
+          <li><b>J4</b> right-handed about the forearm (thumb toward the gripper).</li>
+          <li>If the alignment pose isn't straight up, enter its real angle in step 1.</li>
+        </ul></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<!-- ═════════════════════════ SETTINGS ═════════════════════════ -->
+<main class="view layout single" id="view-settings" hidden>
+  <section class="card">
+    <div class="card-head"><span class="idx">01</span><h2>Robot connection</h2><span class="spacer"></span>
+      <span class="badge" id="set-mode">—</span></div>
+    <form class="card-body" id="set-form">
+      <p class="hint">Moveo Link starts in <b>simulation</b>: every feature drives a virtual arm in the 3D view, so
+        positions and sequences can be prepared without the robot. Connect to switch to the real arm;
+        disconnecting stops the arm and returns to simulation.</p>
+      <div class="row">
+        <label class="field grow2"><span>Robot address</span>
+          <input type="text" class="text" id="set-host" spellcheck="false" placeholder="192.168.4.1"/></label>
+        <button type="submit" class="btn primary" id="set-connect">Connect</button>
+        <button type="button" class="btn" id="set-test" title="Check the robot answers, without connecting">Test</button>
+        <button type="button" class="btn ghost" id="set-disconnect" hidden>Disconnect</button>
+      </div>
+      <div class="result" id="set-res"></div>
+      <details open>
+        <summary>Connecting over WiFi</summary>
+        <div class="dbody"><ul>
+          <li>The arm runs its own WiFi access point. Join the network <b>moveo</b> (password <b>moveo_1234</b>,
+            unless changed in <code>moveo_config.h</code>) from this computer.</li>
+          <li>The robot then answers at <b>192.168.4.1</b>. Use <b>localhost:8080</b> for the stand-alone mock
+            robot (<code>npm run mock</code>).</li>
+          <li>The simulated arm uses its own calibration; taught positions in degrees work on the real arm once
+            its joints are calibrated to the same conventions.</li>
+          <li>Joint-space positions and sequence speeds need firmware with the <code>/movejoints</code>
+            endpoint (the moveo repository's current <code>moveo_arduino</code>).</li>
+        </ul></div>
+      </details>
+    </form>
+  </section>
+  <section class="card">
+    <div class="card-head"><span class="idx">02</span><h2>Keyboard</h2></div>
+    <div class="card-body"><ul class="keys">
+      <li><kbd>Esc</kbd> Stop all motors and any running sequence</li>
+      <li><kbd>Enter</kbd> In the 3D view with Tool/Joint drag in Preview mode: move to the ghost</li>
+      <li><kbd>Shift</kbd> + wheel In Tool drag: change the tool pitch by 5&deg;</li>
+    </ul></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

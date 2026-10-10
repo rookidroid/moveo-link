@@ -18,9 +18,9 @@ It talks to the ESP32 firmware's REST API (`FIRMWARE/movens`) and adds positions
 **Everything the firmware's web page does:**
 - Arm state: tool pose, joint angles and steps, and soft-limit meters.
 - Go to origin and the E-stop (STOP button or <kbd>Esc</kbd>).
-- Tool (XYZ) jogging and go-to-pose with a reach check, through the firmware IK.
-- Joint jogging and targets in degrees or steps.
-- Motion settings (speed / acceleration).
+- Tool (XYZ) stepping and go-to-pose with a reach check, and joint stepping and targets in degrees: in the
+  panel that comes up when the gripper or a link is clicked in the 3D view (see below).
+- Motion settings (speed / acceleration), on the Settings tab.
 - Gripper servo.
 - The 4-step joint calibration wizard.
 
@@ -38,6 +38,7 @@ the robot (it never silently switches to the simulation).
 - **Mouse teleoperation** in the 3D view, picked by clicking the arm. Click anywhere else to go back to orbiting; a preview stays up until you move to it or reset it:
   - *Tool drag*: click the gripper, then drag the gizmo on the fingertip. IK solves the arm live; past the edge of reach or a joint limit, the gizmo and the ghost (now orange) stop at the nearest reachable position. Drag the ring around the fingertip, or use Shift + wheel, to change the pitch.
   - *Joint drag*: click a link to pick its joint, then drag the ring around the joint axis. Blue **+** and orange **−** arrows on the ring show which way the joint's angle grows, as in [Joint directions](#joint-directions).
+  - Either brings up a panel with the same target in numbers: type a value, or step it with the **−** / **+** buttons by the chosen step (1, 5, 10 or 50 mm or degrees). *Snap drag* makes dragging move in whole steps too.
   - *Preview* mode moves the arm on **Move** or <kbd>Enter</kbd>. *Live* mode follows the drag, throttled to one request at a time at a capped speed.
 - **Positions:**
   - Teach the current arm position, or create tool poses by hand.

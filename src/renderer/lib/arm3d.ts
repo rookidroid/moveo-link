@@ -5,6 +5,8 @@
 //               the ring around it; IK solves the arm (ghost), stopping at the
 //               edge of reach
 //   Joint drag  click a link: drag its ring to turn that one joint
+//               Either brings up a panel that sets the same target in numbers
+//               and by − / + steps
 //   Orbit       click anywhere else: what the arm was dragged by goes away; a
 //               preview stays until it is moved to or reset
 // In Preview mode the robot moves on "Move"; in Live mode it follows the drag.
@@ -17,7 +19,7 @@ import { approachYaw, jointFrames, nearestReachable, type NearestResult, type Ve
 import { uid, type Pose, type Position } from '@shared/types'
 import { ArmModel, v3 } from './armModel'
 import {
-  allCalibrated, api, cal, fmt, jointLimits, kick, on, pref, request, seg, setPref,
+  allCalibrated, api, cal, fmt, JOINT_NAMES, jointLimits, kick, on, pref, request, seg, setPref,
   showToast, state, statusDegrees
 } from './core'
 import { promptText } from './dialog'
@@ -35,6 +37,12 @@ const PLANAR_TOL = 0.5  // deg: approach this close to the arm plane counts as p
 const CLICK_SLOP = 5  // px: a press that moves further is a drag, not a click
 const GRIPPER = 6  // userData.joint of the gripper's parts: clicking them picks the tool
 const TELE_ROOM = 250  // px kept clear along the bottom for the panel of what is picked
+// The tool's coordinates in its panel: key, label, unit, colour, what − and + do
+const TOOL_FIELDS = [
+  ['x', 'X', 'mm', 'ax-x', 'Back', 'Forward'], ['y', 'Y', 'mm', 'ax-y', 'Right', 'Left'],
+  ['z', 'Z', 'mm', 'ax-z', 'Down', 'Up'], ['pitch', 'Pitch', '°', 'ax-p', 'Tip back', 'Tip forward'],
+  ['yaw', 'Yaw', '°', 'ax-p', 'Turn clockwise, seen from above', 'Turn counter-clockwise, seen from above']
+]
 
 type Mode = 'view' | 'tool' | 'joint'
 export type ViewHost = 'control' | 'positions' | 'sequences' | 'calibrate' | 'settings'
@@ -75,7 +83,8 @@ export class ArmView {
   private held = false  // orbiting again, with the preview left by the last drag still up
   private follow: 'preview' | 'live' = pref('a3follow', 'preview')
   private speedPct: number = pref('a3speed', 30)
-  private snap: number = pref('a3snap', 5)
+  private step: number = pref('a3step', 5)  // mm or degrees a − / + button moves the target
+  private snapDrag: boolean = pref('a3snapdrag', true)  // drags move in whole steps too
   private target: Pose = { x: 0, y: 0, z: 0, pitch: 0, yaw: null }
   private want: Vec3 = [0, 0, 0]  // where the tool was asked to be; target is the nearest pose in reach
   private clamped = false
@@ -106,24 +115,37 @@ export class ArmView {
           <div class="a3-hud card" data-r="hud" hidden>
             <div class="a3-opts">
               <div class="grp"><span class="lbl">Follow</span><div data-r="follow"></div></div>
-              <div class="grp"><span class="lbl">Snap</span><div data-r="snap"></div></div>
+              <div class="grp" title="How far a &minus; / + button moves the target, in mm or degrees">
+                <span class="lbl">Step</span><div data-r="step"></div></div>
+              <label class="check" title="Dragging moves in whole steps too"><input type="checkbox" data-r="snap"/> Snap drag</label>
               <label class="grp speed"><span class="lbl">Speed</span>
                 <input type="range" min="5" max="100" step="5" data-r="speed"/><span class="mono" data-r="speedv"></span></label>
             </div>
             <div class="a3-tool" data-r="toolhud">
-              ${['x', 'y', 'z', 'pitch', 'yaw'].map(k => `<label class="field"><span>${k === 'pitch' ? 'Pitch' : k === 'yaw' ? 'Yaw' : k.toUpperCase()}</span>
-                <span class="inp"><input type="number" step="any" data-t="${k}" ${k === 'yaw' ? 'placeholder="auto"' : ''}/><i>${k.length > 1 ? '°' : 'mm'}</i></span></label>`).join('')}
+              ${TOOL_FIELDS.map(([k, label, unit, cls, minus, plus]) => `<div class="field"><span><b class="${cls}">${label}</b> <i>${unit}</i></span>
+                <div class="a3-step">
+                  <button type="button" class="btn" data-nt="${k},-1" title="${minus}" aria-label="${label} minus">&minus;</button>
+                  <input type="number" step="any" data-t="${k}" aria-label="${label}" ${k === 'yaw' ? 'placeholder="auto"' : ''}/>
+                  <button type="button" class="btn" data-nt="${k},1" title="${plus}" aria-label="${label} plus">+</button>
+                </div></div>`).join('')}
             </div>
             <div class="a3-joints" data-r="jointhud">
-              ${[1, 2, 3, 4, 5].map(i => `<label class="a3-j" data-j="${i}"><span class="jtag">J${i}</span>
-                <input type="range" step="0.5" data-jr="${i}"/><span class="mono" data-jv="${i}">—</span></label>`).join('')}
+              ${[1, 2, 3, 4, 5].map(i => `<div class="a3-j" data-j="${i}">
+                <span class="jtag">J${i}</span><span class="jname">${JOINT_NAMES[i - 1]}</span>
+                <div class="a3-step">
+                  <button type="button" class="btn" data-nj="${i},-1" aria-label="J${i} minus">&minus;</button>
+                  <input type="number" step="any" data-jn="${i}" aria-label="J${i} angle, degrees"/>
+                  <button type="button" class="btn" data-nj="${i},1" aria-label="J${i} plus">+</button>
+                </div>
+                <input type="range" step="0.5" data-jr="${i}" aria-label="J${i}"/></div>`).join('')}
             </div>
-            <div class="result" data-r="res"></div>
-            <div class="actions">
-              <button type="button" class="btn ghost sm" data-r="reset">Reset to arm</button>
-              <button type="button" class="btn sm" data-r="save">Save as position</button>
-              <span class="grow"></span>
-              <button type="button" class="btn primary" data-r="go">Move &#9656;</button>
+            <div class="a3-foot">
+              <div class="result" data-r="res"></div>
+              <div class="actions">
+                <button type="button" class="btn ghost sm" data-r="reset">Reset to arm</button>
+                <button type="button" class="btn sm" data-r="save">Save position</button>
+                <button type="button" class="btn primary" data-r="go">Move &#9656;</button>
+              </div>
             </div>
           </div>
           <div class="a3-cams">
@@ -374,14 +396,14 @@ export class ArmView {
     this.camera.aspect = w / h
     // The arm is framed in what the side panels and the view's own controls leave clear.
     // Where clicking the arm picks it up, room is kept for the panel that brings up: the
-    // arm stays put under the pointer. Narrow free areas widen the vertical field of view
-    // so the arm still fits sideways
+    // arm stays put under the pointer. A free area too narrow or too low for the arm
+    // widens the field of view until it fits
     const [left, right] = this.insets
     const top = this.q('.a3-top').offsetHeight
     const bottom = Math.max(this.q('.a3-bottom').offsetHeight, TELE_HOSTS.includes(this.host) ? TELE_ROOM : 0)
-    const fov = 38, minAspect = 0.85, free = Math.max(w - left - right, 1) / h
-    this.camera.fov = free >= minAspect ? fov
-      : Math.min(70, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * minAspect / free) * 180 / Math.PI)
+    const fov = 38, minAspect = 0.85, minHeight = 0.64  // of the view's height, which the presets fill
+    const wider = Math.max(1, minAspect * h / Math.max(w - left - right, 1), minHeight * h / Math.max(h - top - bottom, 1))
+    this.camera.fov = Math.min(70, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * wider) * 180 / Math.PI)
     this.camera.setViewOffset(w, h, (right - left) / 2, (bottom - top) / 2, w, h)
     this.invalidate()
   }
@@ -405,10 +427,10 @@ export class ArmView {
 
   setCamera(name: string) {
     const views: Record<string, [Vec3, Vec3]> = {
-      iso: [[1390, -1280, 1140], [150, 0, 400]],
-      front: [[1950, 0, 380], [0, 0, 380]],
-      side: [[0, -1950, 380], [0, 0, 380]],
-      top: [[160, -1, 1900], [160, 0, 0]]
+      iso: [[1390, -1280, 1250], [150, 0, 510]],
+      front: [[2050, 0, 435], [0, 0, 435]],
+      side: [[0, -2050, 435], [0, 0, 435]],
+      top: [[160, -1, 2950], [160, 0, 0]]
     }
     const [pos, tgt] = views[name] || views.iso
     this.camera.position.copy(v3(pos))
@@ -423,10 +445,12 @@ export class ArmView {
     seg<'preview' | 'live'>(this.q('follow'), [['preview', 'Preview'], ['live', 'Live']], this.follow, v => {
       this.follow = v; setPref('a3follow', v); this.cancelLive(); this.updateHud()
     })
-    seg(this.q('snap'), [[0, 'Off'], 1, 5, 10], this.snap, v => {
-      this.snap = v; setPref('a3snap', v); this.gizmo.setTranslationSnap(v || null)
-    })
-    this.gizmo.setTranslationSnap(this.snap || null)
+    const applySnap = () => this.gizmo.setTranslationSnap(this.snapDrag ? this.step : null)
+    seg(this.q('step'), [1, 5, 10, 50], this.step, v => { this.step = v; setPref('a3step', v); applySnap() })
+    const sn = this.q<HTMLInputElement>('snap')
+    sn.checked = this.snapDrag
+    sn.addEventListener('change', () => { this.snapDrag = sn.checked; setPref('a3snapdrag', sn.checked); applySnap() })
+    applySnap()
     const sp = this.q<HTMLInputElement>('speed')
     sp.value = String(this.speedPct)
     this.q('speedv').textContent = this.speedPct + '%'
@@ -465,14 +489,23 @@ export class ArmView {
         this.scheduleLive()
       }))
     this.root.querySelectorAll<HTMLInputElement>('[data-jr]').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const j = +inp.dataset.jr!
-        if (!this.jointDeg) return
-        this.selectJoint(j)
-        this.jointDeg[j - 1] = +inp.value
-        this.onJointChanged()
-      })
+      inp.addEventListener('input', () => this.setJoint(+inp.dataset.jr!, +inp.value))
       inp.addEventListener('change', () => this.flushLive())
+    })
+    this.root.querySelectorAll<HTMLInputElement>('[data-jn]').forEach(inp =>
+      inp.addEventListener('change', () => {
+        const v = parseFloat(inp.value)
+        if (Number.isFinite(v)) this.setJoint(+inp.dataset.jn!, v)
+        this.refreshJointHud(true)
+        this.flushLive()
+      }))
+    // The − / + buttons step the target, as a drag would move it
+    this.q('hud').addEventListener('click', e => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-nt], [data-nj]')
+      if (!b) return
+      const [what, dir] = (b.dataset.nt ?? b.dataset.nj!).split(',')
+      if (b.dataset.nt) this.stepTool(what as keyof Pose, +dir)
+      else if (this.jointDeg) this.setJoint(+what, this.jointDeg[+what - 1] + +dir * this.step)
     })
     this.q('reset').addEventListener('click', () => this.held ? this.setMode('view') : this.resetTarget())
     this.q('save').addEventListener('click', () => this.saveAsPosition())
@@ -613,6 +646,21 @@ export class ArmView {
     this.updateResult()
   }
 
+  /** Move the target a step along one of its coordinates */
+  private stepTool(k: keyof Pose, dir: number) {
+    const t = this.target, d = dir * this.step
+    if (k === 'pitch') this.solveTool({ pitch: Math.max(-180, Math.min(180, t.pitch + d)) })
+    else if (k === 'yaw') {  // left to the arm's plane until now: start from where that points
+      const seed = this.toolSol?.status === 'ok' ? this.toolSol.deg : ZERO
+      this.solveTool({ yaw: (t.yaw ?? approachYaw(t, seed) * 180 / Math.PI) + d })
+    } else {
+      this.want = [t.x, t.y, t.z]
+      this.want['xyz'.indexOf(k)] += d
+      this.solveTool()
+    }
+    this.scheduleLive()
+  }
+
   private onWheel(e: WheelEvent) {
     if (this.mode !== 'tool' || this.held || !e.shiftKey) return
     e.preventDefault()
@@ -747,7 +795,7 @@ export class ArmView {
     d.acc += ((a - d.prev + 540) % 360) - 180
     d.prev = a
     let deg = d.start + d.acc
-    if (this.snap) deg = Math.round(deg / this.snap) * this.snap
+    if (this.snapDrag) deg = Math.round(deg / this.step) * this.step
     if (this.mode === 'tool') {
       deg = Math.max(-180, Math.min(180, deg))
       if (deg === this.target.pitch) return
@@ -785,6 +833,16 @@ export class ArmView {
     this.updateResult()
   }
 
+  /** Turn one joint of the preview to an angle, within its limits */
+  private setJoint(j: number, deg: number) {
+    if (!this.jointDeg) return
+    const c = cal(j)
+    if (c?.limits) deg = Math.max(c.min, Math.min(c.max, deg))
+    this.selectJoint(j)
+    this.jointDeg[j - 1] = deg
+    this.onJointChanged()
+  }
+
   private onJointChanged() {
     this.refreshJointHud()
     this.updateGhost()
@@ -792,7 +850,8 @@ export class ArmView {
     this.scheduleLive()
   }
 
-  private refreshJointHud() {
+  /** Show the preview's joint angles; a field being typed in is left alone unless `all` */
+  private refreshJointHud(all = false) {
     for (let i = 1; i <= 5; i++) {
       const c = cal(i)
       const inp = this.root.querySelector<HTMLInputElement>(`[data-jr="${i}"]`)!
@@ -800,7 +859,8 @@ export class ArmView {
       inp.max = String(c?.limits ? c.max : 180)
       const v = this.jointDeg?.[i - 1]
       if (v != null) inp.value = String(v)
-      this.root.querySelector(`[data-jv="${i}"]`)!.textContent = v == null ? '—' : fmt(v) + '°'
+      const num = this.root.querySelector<HTMLInputElement>(`[data-jn="${i}"]`)!
+      if (all || document.activeElement !== num) num.value = v == null ? '' : v.toFixed(1)
     }
   }
 
@@ -880,10 +940,11 @@ export class ArmView {
     let text = '', err = false
     const edge = this.mode === 'tool' && this.clamped
     if (this.mode === 'tool') {
-      if (this.toolSol?.status === 'ok') text = (edge ? 'NEAREST REACHABLE ▸ ' : 'REACHABLE ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join('  ')
+      if (this.toolSol?.status === 'ok') text = (edge ? 'NEAREST REACHABLE ▸ ' : 'REACHABLE ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join(' ')
       else { err = true; text = this.toolSol?.status === 'limits' ? '✕ pose outside joint limits' : '✕ pose unreachable' }
     } else if (this.mode === 'joint') {
-      text = this.jointSel ? `J${this.jointSel} selected — drag the ring or its slider` : 'Click a link of the arm to pick its joint'
+      text = this.jointSel ? `J${this.jointSel} ${JOINT_NAMES[this.jointSel - 1]} picked: drag its ring, or set its angle here`
+        : 'Click a link of the arm to pick its joint'
     }
     res.textContent = text
     res.className = 'result' + (err ? ' err' : edge ? ' warn' : '')

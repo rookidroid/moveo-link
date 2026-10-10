@@ -105,7 +105,6 @@ export class ArmView {
       <div class="a3-stage"></div>
       <div class="a3-chrome">
         <div class="a3-top">
-          <span class="badge sim a3-mode" title="Not connected: this is the simulated arm">Simulation</span>
           <div class="a3-msg" data-r="msg" hidden></div>
         </div>
         <div class="a3-bottom">

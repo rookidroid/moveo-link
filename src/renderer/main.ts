@@ -17,9 +17,14 @@ function layoutStage() {
   const col = (side: string) =>
     stacked.matches ? null : document.querySelector<HTMLElement>(`.hud-${side}`)
   const left = col('left'), right = col('right')
-  armView().setInsets(
-    left?.offsetWidth ? left.offsetLeft + left.offsetWidth : 0,
-    right?.offsetWidth ? $('stage').clientWidth - right.offsetLeft : 0)
+  const l = left?.offsetWidth ? left.offsetLeft + left.offsetWidth : 0
+  const r = right?.offsetWidth ? $('stage').clientWidth - right.offsetLeft : 0
+  armView().setInsets(l, r)
+  // The app bar's plate sits in the same gap, and the view's own controls start under it
+  const root = document.documentElement.style
+  root.setProperty('--inset-l', l + 'px')
+  root.setProperty('--inset-r', r + 'px')
+  root.setProperty('--bar-h', $('appbar').offsetHeight + 'px')
 }
 
 // Panels fold away, and start as they were left
@@ -56,7 +61,7 @@ async function main() {
   showSequences()
   layoutStage()
   const sizes = new ResizeObserver(layoutStage)
-  document.querySelectorAll('#stage, .hud-col').forEach(el => sizes.observe(el))
+  document.querySelectorAll('#stage, .hud-col, #appbar').forEach(el => sizes.observe(el))
   startPolling()
 }
 

@@ -104,7 +104,6 @@ export function renderConn() {
   b.textContent = connecting ? 'Connecting…' : robot ? 'Reconnect' : 'Connect'
   b.disabled = connecting
   $('set-disconnect').hidden = !robot
-  document.body.classList.toggle('sim-mode', !robot)
 }
 
 /** Connect to the robot at `host` (default: the saved address). Stays in

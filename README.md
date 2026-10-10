@@ -27,8 +27,8 @@ robot's own page at `http://<robot address>/calibrate`. Where a joint is not cal
 and it reads the calibration again when its window comes back to the front.
 
 **Simulation first:** the app starts in simulation mode and never contacts the robot until you press
-**Connect** (in the panel under the connection chip in the app bar). Every feature, including the 3D view,
-positions and sequences, then drives a built-in virtual arm, so motions can be prepared and rehearsed offline.
+**Connect** (in the panel under the connection chip at the top of the view). Every feature, including the 3D
+view, positions and sequences, then drives a built-in virtual arm, so motions can be prepared and rehearsed offline.
 Disconnecting stops the arm and goes back to the simulation. If the robot stops answering while connected, the
 app shows **Offline** and stays on the robot (it never silently switches to the simulation).
 

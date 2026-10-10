@@ -20,7 +20,7 @@ function createWindow() {
     minHeight: 640,
     title: 'Movens Link',
     icon,
-    backgroundColor: '#0b0d0f',
+    backgroundColor: '#0a1114',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(here, '../preload/index.cjs'),

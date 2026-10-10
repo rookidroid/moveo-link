@@ -1,38 +1,21 @@
-/* The workspace: the 3D view fills the window under the app bar, and the
-   panels lie over it. On top of app.css and link.css. */
+/* The workspace: the 3D view fills the window, and everything else lies over
+   it: the panels down the sides, the app bar's plate at the top. On top of
+   app.css and link.css. */
 
 html,body{height:100%}
 body{display:flex;flex-direction:column;overflow:hidden}
-.appbar{flex:0 0 auto}
 
 /* ── Stage ─────────────────────────────────────────────── */
-/* The view is dark in both themes, and so is what lies over it: the colour
-   tokens every control reads are swapped here. The app bar, the dialogs and
-   the toast stay outside and follow the system theme. */
 .stage{
-  position:relative;flex:1 1 auto;min-height:0;overflow:hidden;color-scheme:dark;color:var(--ink);
-  background:var(--view-bg);
+  position:relative;flex:1 1 auto;min-height:0;overflow:hidden;background:var(--view-bg);
   --view-bg:#0a1114;--view-ground:#111c21;--view-grid:#27474f;--ring-hot:#fff27a;
   --arm-shell:#e3e8eb;--arm-joint:#2b353b;
-  --panel:rgba(9,16,19,.84);--panel-2:rgba(46,197,216,.07);--inset:rgba(2,7,9,.55);
-  --line:rgba(46,197,216,.15);--line-2:rgba(46,197,216,.32);
-  --ink:#dde5e8;--ink-2:#a3b1b8;--ink-3:#74858d;
-  --accent:#2ec5d8;--accent-ink:#03161a;--accent-soft:rgba(46,197,216,.13);
-  --ok:#3ccf74;--warn:#f2aa2b;--warn-soft:rgba(242,170,43,.1);--danger:#ef4444;
-  --ax-x:#ff5f5f;--ax-y:#4fd06a;--ax-z:#4e9eff;
-  --plus:#4e9eff;--minus:#ff7b3a;
-  --shadow:0 8px 28px rgba(0,0,0,.5);
-  --chamfer:9px;
 }
 .a3-host,.arm3d,.a3-stage{position:absolute;inset:0}
 /* Absolutely placed so the canvas never props its container open while resizing */
 .a3-stage canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;touch-action:none}
 
 /* ── Panels ────────────────────────────────────────────── */
-/* A plate over the view: translucent, its top-right and bottom-left corners cut */
-.stage .card{background:var(--panel);border-color:var(--line-2);backdrop-filter:blur(6px);
-  clip-path:polygon(0 0,calc(100% - var(--chamfer)) 0,100% var(--chamfer),100% 100%,var(--chamfer) 100%,0 calc(100% - var(--chamfer)))}
-.stage .card::before,.stage .card::after{content:none}
 .stage select option{color:var(--ink);background:#0d161a}
 
 /* The panels, in a column down each side of the 3D view; the middle stays clear */
@@ -83,10 +66,10 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .a3-chrome{position:absolute;top:0;bottom:0;left:var(--inset-l,0px);right:var(--inset-r,0px);display:flex;
   flex-direction:column;align-items:center;justify-content:space-between;gap:12px;padding:12px;pointer-events:none}
 .a3-top,.a3-bottom{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;max-width:100%}
+/* Under the app bar's plate, which sits in the same gap */
+.a3-top{padding-top:calc(var(--bar-h,54px) + 8px)}
 .a3-chrome .card,.a3-cams,.a3-msg{pointer-events:auto}
 .a3-opts .grp{display:flex;align-items:center;gap:8px}
-.a3-mode{height:22px;padding:0 8px;background:var(--panel);backdrop-filter:blur(6px)}
-body:not(.sim-mode) .a3-mode{display:none}
 .a3-msg{padding:8px 12px;font-size:12.5px;background:var(--panel);border:1px solid var(--warn);border-left-width:3px;
   backdrop-filter:blur(6px)}
 /* What is picked, in numbers: how its target follows, then the tool's

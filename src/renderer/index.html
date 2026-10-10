@@ -9,7 +9,9 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 </head>
 <body>
+<!-- No bar: the brand, the connection and STOP on one plate over the top of the 3D view -->
 <header class="appbar" id="appbar">
+<div class="plate">
   <div class="brand">
     <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
       <rect x="2" y="2" width="60" height="60" rx="12" class="bl-tile"/>
@@ -20,7 +22,6 @@
     </svg>
     <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">Link &middot; 5-axis arm controller</span></div>
   </div>
-  <span class="spacer"></span>
   <span class="run-chip" id="run-chip" hidden></span>
   <div class="conn-wrap">
     <button type="button" class="conn" id="btnConn" title="Robot connection" aria-haspopup="dialog"
@@ -59,6 +60,7 @@
     </div>
   </div>
   <button class="estop" id="btnStop" title="Stop all motors (Esc)">STOP <kbd>ESC</kbd></button>
+</div>
 </header>
 
 <!-- The 3D view fills the window; the panels lie over it -->

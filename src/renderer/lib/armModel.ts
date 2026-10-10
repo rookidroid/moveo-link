@@ -79,14 +79,14 @@ export class ArmModel {
     this.body = mat({ color: 0xe3e8eb })
     this.hub = mat({ color: 0x2b353b, roughness: 0.62 })
     this.accent = mat({ color: 0x2ec5d8 })
-    // name: [material, joint selected when the part is clicked]
+    // name: [material, joint selected when the part is clicked (6: the gripper, which picks the tool)]
     const spec: Record<string, [THREE.Material, number]> = {
       base: [this.hub, 1], turntable: [this.body, 1], marker: [this.accent, 1], column: [this.body, 1],
       shoulder: [this.hub, 2], shoulderCapA: [this.accent, 2], shoulderCapB: [this.accent, 2], upper: [this.body, 2],
       elbow: [this.hub, 3], elbowCapA: [this.accent, 3], elbowCapB: [this.accent, 3], forearm: [this.body, 3],
       roll: [this.hub, 4], rollBand: [this.accent, 4],
       wristHub: [this.hub, 5], wristHubCapA: [this.accent, 5], wristHubCapB: [this.accent, 5],
-      toolLink: [this.body, 5], palm: [this.hub, 5], fingerA: [this.body, 5], fingerB: [this.body, 5]
+      toolLink: [this.body, 5], palm: [this.hub, 6], fingerA: [this.body, 6], fingerB: [this.body, 6]
     }
     for (const [name, [material, joint]] of Object.entries(spec)) {
       const shape = SHAPES[name.replace(/Cap[AB]$/, 'Cap')]

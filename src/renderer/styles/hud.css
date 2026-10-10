@@ -79,16 +79,15 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .stage .jp .nm{max-width:100%;overflow:hidden;font-size:8.5px;text-overflow:ellipsis}
 
 /* ── 3D view controls ──────────────────────────────────── */
-/* Over the part of the view the panels leave clear: how the mouse acts on the
-   arm at the top; the target being dragged, the cameras and a hint at the bottom */
+/* Over the part of the view the panels leave clear: the target being dragged,
+   the cameras and a hint along the bottom */
 .a3-chrome{position:absolute;top:0;bottom:0;left:var(--inset-l,0px);right:var(--inset-r,0px);display:flex;
   flex-direction:column;align-items:center;justify-content:space-between;gap:12px;padding:12px;pointer-events:none}
 .a3-top,.a3-bottom{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;max-width:100%}
 .a3-chrome .card,.a3-cams,.a3-msg{pointer-events:auto}
-.a3-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 12px;padding:6px 10px}
-.a3-bar .grp,.a3-opts .grp{display:flex;align-items:center;gap:8px}
-body:not(.sim-mode) .a3-mode,.arm3d.no-tele .a3-mouse,body:not(.sim-mode) .arm3d.no-tele .a3-bar{display:none}
-.arm3d.locked .a3-mouse{opacity:.5;pointer-events:none}
+.a3-opts .grp{display:flex;align-items:center;gap:8px}
+.a3-mode{height:22px;padding:0 8px;background:var(--panel);backdrop-filter:blur(6px)}
+body:not(.sim-mode) .a3-mode{display:none}
 .a3-msg{padding:8px 12px;font-size:12.5px;background:var(--panel);border:1px solid var(--warn);border-left-width:3px;
   backdrop-filter:blur(6px)}
 .a3-hud{display:flex;flex-direction:column;gap:8px;width:560px;max-width:100%;padding:8px 10px}
@@ -100,11 +99,13 @@ body:not(.sim-mode) .a3-mode,.arm3d.no-tele .a3-mouse,body:not(.sim-mode) .arm3d
 .a3-opts .speed{flex:1 1 150px}
 .a3-opts .speed input{flex:1;min-width:60px}
 .a3-tool{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px}
-.a3-joints{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 16px}
-.a3-j{display:grid;grid-template-columns:28px minmax(0,1fr) 64px;align-items:center;gap:8px;padding:0 4px;
+.a3-joints{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:4px 8px}
+.a3-j{display:grid;grid-template:"tag val" auto "bar bar" auto / auto minmax(0,1fr);align-items:center;gap:0 6px;padding:2px 4px 0;
   border-left:2px solid transparent}
 .a3-j.sel{border-left-color:var(--warn);background:var(--warn-soft)}
-.a3-j .mono{text-align:right}
+.a3-j .jtag{grid-area:tag}
+.a3-j .mono{grid-area:val;text-align:right}
+.a3-j input{grid-area:bar}
 .a3-cams{display:flex;gap:4px}
 .a3-cams .btn{background:var(--panel);backdrop-filter:blur(6px)}
 .a3-cams .btn.on{background:var(--accent-soft)}

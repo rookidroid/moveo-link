@@ -1,9 +1,12 @@
 // 3D view of the arm (three.js), filling the window behind every tab's panels:
 // live arm from /status, a translucent "ghost" for previews, the tool path of a
 // sequence, and mouse teleoperation:
-//   Tool drag   move a gizmo on the fingertip, tilt it with the ring around
-//               it; IK solves the arm (ghost), stopping at the edge of reach
-//   Joint drag  click a link, drag its ring to turn that one joint
+//   Tool drag   click the gripper: move a gizmo on the fingertip, tilt it with
+//               the ring around it; IK solves the arm (ghost), stopping at the
+//               edge of reach
+//   Joint drag  click a link: drag its ring to turn that one joint
+//   Orbit       click anywhere else: what the arm was dragged by goes away; a
+//               preview stays until it is moved to or reset
 // In Preview mode the robot moves on "Move"; in Live mode it follows the drag.
 // Robot frame: +Z up, +X forward at J1 = 0, millimetres.
 
@@ -15,7 +18,7 @@ import { uid, type Pose, type Position } from '@shared/types'
 import { ArmModel, v3 } from './armModel'
 import {
   allCalibrated, api, cal, fmt, jointLimits, kick, on, pref, request, seg, setPref,
-  showToast, state, statusDegrees, type Seg
+  showToast, state, statusDegrees
 } from './core'
 import { promptText } from './dialog'
 import { makeFloor } from './floor'
@@ -29,6 +32,9 @@ const TOOL_RING_R = 80  // the pitch ring around the fingertip
 const MARK_DEG = 40  // the + / − arrows on the joint ring sweep this far each way
 const BADGE_MM = 34  // size of their + / − badges
 const PLANAR_TOL = 0.5  // deg: approach this close to the arm plane counts as planar
+const CLICK_SLOP = 5  // px: a press that moves further is a drag, not a click
+const GRIPPER = 6  // userData.joint of the gripper's parts: clicking them picks the tool
+const TELE_ROOM = 250  // px kept clear along the bottom for the panel of what is picked
 
 type Mode = 'view' | 'tool' | 'joint'
 export type ViewHost = 'control' | 'positions' | 'sequences' | 'calibrate' | 'settings'
@@ -66,6 +72,7 @@ export class ArmView {
 
   // Teleoperation
   private mode: Mode = 'view'
+  private held = false  // orbiting again, with the preview left by the last drag still up
   private follow: 'preview' | 'live' = pref('a3follow', 'preview')
   private speedPct: number = pref('a3speed', 30)
   private snap: number = pref('a3snap', 5)
@@ -77,14 +84,13 @@ export class ArmView {
   private jointDeg: number[] | null = null
   private jointSel = 0
   private ringHot = false  // the pointer is over the ring
+  private press: [number, number] | null = null  // where a press that may become a click began
   private ringDrag: { axis: THREE.Vector3; pivot: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3
                       start: number; prev: number; acc: number } | null = null
   private liveBusy = false
   private livePending = false
   private liveTimer = 0
   private lastSent = 0
-
-  private segMode!: Seg<Mode>
 
   constructor(host: HTMLElement) {
     this.root.className = 'arm3d'
@@ -93,10 +99,7 @@ export class ArmView {
       <div class="a3-stage"></div>
       <div class="a3-chrome">
         <div class="a3-top">
-          <div class="a3-bar card">
-            <span class="badge sim a3-mode" title="Not connected: this is the simulated arm">Simulation</span>
-            <div class="grp a3-mouse"><span class="lbl">Mouse</span><div data-r="mode"></div></div>
-          </div>
+          <span class="badge sim a3-mode" title="Not connected: this is the simulated arm">Simulation</span>
           <div class="a3-msg" data-r="msg" hidden></div>
         </div>
         <div class="a3-bottom">
@@ -204,6 +207,8 @@ export class ArmView {
 
     const el = this.renderer.domElement
     el.addEventListener('pointerdown', e => this.onPointerDown(e), { capture: true })
+    // After the gizmo has seen the press: one on its handles is its own
+    el.addEventListener('pointerdown', () => { if (this.gizmo.axis) this.press = null })
     el.addEventListener('pointermove', e => this.onPointerMove(e))
     el.addEventListener('pointerup', e => this.onPointerUp(e))
     el.addEventListener('pointerleave', () => this.setRingHot(false))
@@ -231,10 +236,11 @@ export class ArmView {
   setHost(host: ViewHost) {
     if (this.host !== host) this.setMode('view')
     this.host = host
-    this.root.classList.toggle('no-tele', !TELE_HOSTS.includes(host))
     this.previewDeg = null
     this.setPath([])
+    this.updateHud()
     this.updateGhost()
+    this.resize()
   }
 
   /** Width of the view covered by the panels on each side: the arm and the
@@ -256,6 +262,7 @@ export class ArmView {
     this.servo = servo
     this.liveTarget = deg
     this.updateMessage()
+    if (this.held && !this.previewed()) this.setMode('view')  // the arm got there
     if (deg && this.trail.visible) this.pushTrail(deg)
     this.invalidate()
   }
@@ -277,7 +284,6 @@ export class ArmView {
       ? 'Robot offline'
       : 'Calibrate J1&ndash;J5 to see the arm. <a href="#calibrate">Open calibration &rarr;</a>'
     this.live.group.visible = ok
-    this.root.classList.toggle('locked', !ok)
     if (!ok && this.mode !== 'view') this.setMode('view')
   }
 
@@ -367,9 +373,12 @@ export class ArmView {
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
     // The arm is framed in what the side panels and the view's own controls leave clear.
-    // Narrow free areas widen the vertical field of view so the arm still fits sideways
+    // Where clicking the arm picks it up, room is kept for the panel that brings up: the
+    // arm stays put under the pointer. Narrow free areas widen the vertical field of view
+    // so the arm still fits sideways
     const [left, right] = this.insets
-    const top = this.q('.a3-top').offsetHeight, bottom = this.q('.a3-bottom').offsetHeight
+    const top = this.q('.a3-top').offsetHeight
+    const bottom = Math.max(this.q('.a3-bottom').offsetHeight, TELE_HOSTS.includes(this.host) ? TELE_ROOM : 0)
     const fov = 38, minAspect = 0.85, free = Math.max(w - left - right, 1) / h
     this.camera.fov = free >= minAspect ? fov
       : Math.min(70, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * minAspect / free) * 180 / Math.PI)
@@ -396,9 +405,9 @@ export class ArmView {
 
   setCamera(name: string) {
     const views: Record<string, [Vec3, Vec3]> = {
-      iso: [[1230, -1110, 1040], [150, 0, 400]],
-      front: [[1700, 0, 380], [0, 0, 380]],
-      side: [[0, -1700, 380], [0, 0, 380]],
+      iso: [[1390, -1280, 1140], [150, 0, 400]],
+      front: [[1950, 0, 380], [0, 0, 380]],
+      side: [[0, -1950, 380], [0, 0, 380]],
       top: [[160, -1, 1900], [160, 0, 0]]
     }
     const [pos, tgt] = views[name] || views.iso
@@ -411,8 +420,6 @@ export class ArmView {
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   private buildUi() {
-    this.segMode = seg<Mode>(this.q('mode'), [['view', 'Orbit'], ['tool', 'Tool drag'], ['joint', 'Joint drag']], 'view',
-      m => this.setMode(m))
     seg<'preview' | 'live'>(this.q('follow'), [['preview', 'Preview'], ['live', 'Live']], this.follow, v => {
       this.follow = v; setPref('a3follow', v); this.cancelLive(); this.updateHud()
     })
@@ -467,7 +474,7 @@ export class ArmView {
       })
       inp.addEventListener('change', () => this.flushLive())
     })
-    this.q('reset').addEventListener('click', () => this.resetTarget())
+    this.q('reset').addEventListener('click', () => this.held ? this.setMode('view') : this.resetTarget())
     this.q('save').addEventListener('click', () => this.saveAsPosition())
     this.q('go').addEventListener('click', () => this.moveToGhost())
     this.updateHud()
@@ -478,10 +485,10 @@ export class ArmView {
       showToast('Mouse control needs J1–J5 calibrated', 'err')
       m = 'view'
     }
+    const from = m === 'view' ? null : this.previewed()  // a preview carries over to the other way of dragging
     this.cancelLive()
     this.mode = m
-    if (this.segMode && this.segMode.value !== m) this.segMode.set(
-      [['view', 'Orbit'], ['tool', 'Tool drag'], ['joint', 'Joint drag']], m)
+    this.held = false
     this.jointSel = 0
     this.ringDrag = null
     if (m !== 'tool') {
@@ -489,7 +496,30 @@ export class ArmView {
       this.handle.visible = false
     }
     if (m === 'view') this.jointDeg = null
-    else this.resetTarget()
+    else this.resetTarget(from)
+    this.updateHud()
+    this.updateGhost()
+  }
+
+  /** Joint angles of the preview, when it is somewhere the arm is not */
+  private previewed(): number[] | null {
+    const deg = this.mode === 'tool' ? (this.toolSol?.status === 'ok' ? this.toolSol.deg : null)
+      : this.mode === 'joint' ? this.jointDeg : null
+    const arm = statusDegrees()
+    return deg && arm && deg.some((v, k) => Math.abs(v - arm[k]) > 0.05) ? deg : null
+  }
+
+  /** Back to orbiting. A preview stays up, with its panel, to be moved to or
+   *  reset; only what it was dragged by goes away */
+  private letGo() {
+    if (this.mode === 'view' || this.held) return
+    if (!this.previewed()) return this.setMode('view')
+    this.cancelLive()
+    this.held = true
+    this.ringDrag = null
+    this.gizmo.detach()
+    this.handle.visible = false
+    this.selectJoint(0)
     this.updateHud()
     this.updateGhost()
   }
@@ -501,16 +531,18 @@ export class ArmView {
     this.q('jointhud').hidden = this.mode !== 'joint'
     this.q('go').hidden = this.follow === 'live'
     this.q('help').textContent =
-      this.mode === 'tool' ? 'Drag the arrows / planes to move · Ring or Shift+wheel: pitch · Enter: move' :
-      this.mode === 'joint' ? 'Click a link to pick its joint, then drag the ring · Enter: move' :
-      'Drag: orbit · Right-drag: pan · Wheel: zoom'
+      this.held ? 'Preview kept · Enter: move · Click the gripper or a link to drag it again · Drag: orbit' :
+      this.mode === 'tool' ? 'Drag the arrows / planes · Ring or Shift+wheel: pitch · Enter: move · Click away: done' :
+      this.mode === 'joint' ? 'Drag the ring · Click another link to switch · Enter: move · Click away: done' :
+      (TELE_HOSTS.includes(this.host) ? 'Click the gripper or a link to drag it · ' : '') +
+        'Drag: orbit · Right-drag: pan · Wheel: zoom'
     if (tele) this.updateResult()
   }
 
-  /** Start teleoperation from where the arm is now */
-  private resetTarget() {
+  /** Start teleoperation from the given joint angles, or from where the arm is now */
+  private resetTarget(from?: number[] | null) {
     this.cancelLive()
-    const deg = statusDegrees()
+    const deg = from ?? statusDegrees()
     if (!deg) return
     if (this.mode === 'tool') {
       const fr = jointFrames(deg), t = fr.approach
@@ -582,7 +614,7 @@ export class ArmView {
   }
 
   private onWheel(e: WheelEvent) {
-    if (this.mode !== 'tool' || !e.shiftKey) return
+    if (this.mode !== 'tool' || this.held || !e.shiftKey) return
     e.preventDefault()
     e.stopImmediatePropagation()
     const d = e.deltaY || e.deltaX
@@ -597,12 +629,17 @@ export class ArmView {
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
   }
 
-  private onPointerDown(e: PointerEvent) {
-    if (this.mode === 'view' || e.button !== 0) return
+  private rayAt(e: PointerEvent): THREE.Raycaster {
     const ray = new THREE.Raycaster()
     ray.setFromCamera(this.ndc(e), this.camera)
+    return ray
+  }
+
+  private onPointerDown(e: PointerEvent) {
+    this.press = null
+    if (e.button !== 0) return
     const f = this.ringFrame()
-    if (f && ray.intersectObject(this.ringPick, false).length) {
+    if (f && this.rayAt(e).intersectObject(this.ringPick, false).length) {
       const { axis, pivot } = f
       const u = new THREE.Vector3().crossVectors(axis, Math.abs(axis.z) < 0.9 ? Z_AXIS : Y_AXIS).normalize()
       const v = new THREE.Vector3().crossVectors(axis, u)
@@ -618,13 +655,40 @@ export class ArmView {
       e.stopImmediatePropagation()
       return
     }
-    if (this.mode !== 'joint') return
-    const hits = ray.intersectObjects([...this.ghost.parts, ...this.live.parts], false)
-      .filter(h => h.object.parent?.visible)
-    if (hits.length) {
-      this.selectJoint(hits[0].object.userData.joint)
-      e.stopImmediatePropagation()
+    this.press = [e.clientX, e.clientY]
+  }
+
+  /** The part of the arm under the pointer, on the tabs where a click picks it up */
+  private partAt(ray: THREE.Raycaster): THREE.Object3D | null {
+    if (!TELE_HOSTS.includes(this.host)) return null
+    const arms = this.mode === 'view' ? this.live.parts : [...this.ghost.parts, ...this.live.parts]
+    return ray.intersectObjects(arms, false).find(h => h.object.visible && h.object.parent?.visible)?.object ?? null
+  }
+
+  /** A click picks what the mouse then drags: the gripper for the tool, a link
+   *  for its joint; a click on nothing lets go, back to orbiting */
+  private pick(e: PointerEvent) {
+    if (!TELE_HOSTS.includes(this.host)) return
+    const joint: number | undefined = this.partAt(this.rayAt(e))?.userData.joint
+    if (!joint) this.letGo()
+    else {
+      const mode: Mode = joint === GRIPPER ? 'tool' : 'joint'
+      if (this.mode !== mode) this.setMode(mode)
+      else if (this.held) this.pickUp()
+      if (this.mode === 'joint') this.selectJoint(joint)
     }
+    this.hover(e)
+  }
+
+  /** Drag a kept preview again, from where it is */
+  private pickUp() {
+    this.held = false
+    if (this.mode === 'tool') {
+      this.handle.visible = true
+      this.gizmo.attach(this.handle)
+    }
+    this.updateHud()
+    this.updateGhost()
   }
 
   /** The ring to show: around the picked joint's axis, or around the fingertip to tilt the tool */
@@ -638,7 +702,7 @@ export class ArmView {
       if (k === 3) ref.crossVectors(v3(fr.axes[4]), axis)  // where J5 tips the tool
       return { axis, pivot: v3(fr.pivots[k]), radius: RING_R[k], ref }
     }
-    if (this.mode === 'tool' && this.toolSol?.status === 'ok') {
+    if (this.mode === 'tool' && !this.held && this.toolSol?.status === 'ok') {
       // Pitch turns the tool about the horizontal axis square to its heading; arrows start from the tool
       const t = this.target
       const yaw = approachYaw(t, this.toolSol.deg), p = t.pitch * Math.PI / 180
@@ -660,11 +724,12 @@ export class ArmView {
     return Math.atan2(hit.dot(d.v), hit.dot(d.u)) * 180 / Math.PI
   }
 
-  /** The ring lights up under the pointer, as the gizmo's handles do, and stays lit while dragged */
-  private hoverRing(e: PointerEvent) {
-    const ray = new THREE.Raycaster()
-    ray.setFromCamera(this.ndc(e), this.camera)
+  /** The ring lights up under the pointer, as the gizmo's handles do, and stays lit
+   *  while dragged; a part of the arm that a click would pick shows a hand */
+  private hover(e: PointerEvent) {
+    const ray = this.rayAt(e)
     this.setRingHot(this.ring.visible && !this.gizmo.dragging && ray.intersectObject(this.ringPick, false).length > 0)
+    if (!this.ringHot) this.renderer.domElement.style.cursor = !this.gizmo.axis && this.partAt(ray) ? 'pointer' : ''
   }
 
   private setRingHot(hot: boolean) {
@@ -676,7 +741,7 @@ export class ArmView {
 
   private onPointerMove(e: PointerEvent) {
     const d = this.ringDrag
-    if (!d) return this.hoverRing(e)
+    if (!d) return this.hover(e)
     const a = this.ringAngle(e, d)
     if (a == null) return
     d.acc += ((a - d.prev + 540) % 360) - 180
@@ -698,16 +763,22 @@ export class ArmView {
   }
 
   private onPointerUp(e: PointerEvent) {
-    if (!this.ringDrag) return
-    this.ringDrag = null
-    this.orbit.enabled = true
-    this.renderer.domElement.releasePointerCapture(e.pointerId)
-    this.hoverRing(e)
-    this.flushLive()
+    if (this.ringDrag) {
+      this.ringDrag = null
+      this.orbit.enabled = true
+      this.renderer.domElement.releasePointerCapture(e.pointerId)
+      this.hover(e)
+      this.flushLive()
+      return
+    }
+    const press = this.press
+    this.press = null
+    if (press && Math.hypot(e.clientX - press[0], e.clientY - press[1]) <= CLICK_SLOP) this.pick(e)
   }
 
   private selectJoint(j: number) {
     if (this.mode !== 'joint') return
+    if (j && this.held) this.pickUp()  // also from its slider
     this.jointSel = j
     this.root.querySelectorAll('.a3-j').forEach(el => el.classList.toggle('sel', +(el as HTMLElement).dataset.j! === j))
     this.updateRing()
@@ -812,7 +883,7 @@ export class ArmView {
       if (this.toolSol?.status === 'ok') text = (edge ? 'NEAREST REACHABLE ▸ ' : 'REACHABLE ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join('  ')
       else { err = true; text = this.toolSol?.status === 'limits' ? '✕ pose outside joint limits' : '✕ pose unreachable' }
     } else if (this.mode === 'joint') {
-      text = this.jointSel ? `J${this.jointSel} selected — drag the ring or its slider` : 'Click a link of the arm to pick a joint'
+      text = this.jointSel ? `J${this.jointSel} selected — drag the ring or its slider` : 'Click a link of the arm to pick its joint'
     }
     res.textContent = text
     res.className = 'result' + (err ? ' err' : edge ? ' warn' : '')

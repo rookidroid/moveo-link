@@ -97,7 +97,7 @@ function render() {
   const el = $('plist')
   if (!lib.positions.length) {
     el.innerHTML = `<div class="empty">No positions yet. Move the arm and press <b>Teach current</b>,
-      or use the 3D view's <b>Tool drag</b> / <b>Joint drag</b> and <b>Save as position</b>.</div>`
+      or click the gripper or a link in the 3D view, drag it, and <b>Save as position</b>.</div>`
     updatePreview()
     return
   }

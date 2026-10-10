@@ -20,25 +20,51 @@
     </svg>
     <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">Link &middot; 5-axis arm controller</span></div>
   </div>
-  <nav class="nav" id="nav">
-    <a href="#control" data-view="control">Control</a>
-    <a href="#calibrate" data-view="calibrate">Calibrate</a>
-    <a href="#settings" data-view="settings">Settings</a>
-  </nav>
-  <div class="conn" title="Robot connection">
-    <span class="run-chip" id="run-chip" hidden></span>
-    <span class="led" id="dot"></span><span id="conn-status">Connecting</span>
-    <span class="conn-host" id="conn-host">virtual arm</span>
-    <button class="btn sm primary" id="btnConn" title="Connect to the robot over WiFi">Connect</button>
+  <span class="spacer"></span>
+  <span class="run-chip" id="run-chip" hidden></span>
+  <div class="conn-wrap">
+    <button type="button" class="conn" id="btnConn" title="Robot connection" aria-haspopup="dialog"
+      aria-expanded="false" aria-controls="conn-pop">
+      <span class="led" id="dot"></span><span id="conn-status">Connecting</span>
+      <span class="conn-host" id="conn-host">virtual arm</span><span class="caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="pop card" id="conn-pop" role="dialog" aria-label="Robot connection" hidden>
+      <form class="card-body" id="set-form">
+        <p class="hint">Movens Link starts in <b>simulation</b>: every feature drives a virtual arm in the 3D view, so
+          positions and sequences can be prepared without the robot. Connect to switch to the real arm;
+          disconnecting stops the arm and returns to simulation.</p>
+        <label class="field"><span>Robot address</span>
+          <input type="text" class="text" id="set-host" spellcheck="false" placeholder="192.168.4.1"/></label>
+        <div class="actions">
+          <button type="submit" class="btn primary" id="set-connect">Connect</button>
+          <button type="button" class="btn" id="set-test" title="Check the robot answers, without connecting">Test</button>
+          <span class="grow"></span>
+          <button type="button" class="btn ghost" id="set-disconnect" hidden>Disconnect</button>
+        </div>
+        <div class="result" id="set-res"></div>
+        <details>
+          <summary>Connecting over WiFi</summary>
+          <div class="dbody"><ul>
+            <li>The arm runs its own WiFi access point. Join the network <b>movens</b> (password <b>movens_1234</b>,
+              unless changed in <code>movens_config.h</code>) from this computer.</li>
+            <li>The robot then answers at <b>192.168.4.1</b>. Use <b>localhost:8080</b> for the stand-alone mock
+              robot (<code>npm run mock</code>).</li>
+            <li>The simulated arm uses its own calibration; taught positions in degrees work on the real arm once
+              its joints are calibrated to the same conventions.</li>
+            <li>Joint-space positions and sequence speeds need firmware with the <code>/movejoints</code>
+              endpoint (the movens repository's current <code>movens</code> firmware).</li>
+          </ul></div>
+        </details>
+      </form>
+    </div>
   </div>
   <button class="estop" id="btnStop" title="Stop all motors (Esc)">STOP <kbd>ESC</kbd></button>
 </header>
 
-<!-- The 3D view fills the window; each tab lays its panels over it -->
+<!-- The 3D view fills the window; the panels lie over it -->
 <div class="stage" id="stage">
 <div class="a3-host" id="a3-host"></div>
 
-<!-- ═════════════════════════ CONTROL ═════════════════════════ -->
 <main class="view" id="view-control">
   <div class="hud-col hud-left">
     <details class="card" data-panel="control.state" open>
@@ -54,7 +80,7 @@
           <div class="tile"><span class="k"><b class="ax-p">Yaw</b>&deg;</span><span class="v" id="p-yaw">—</span></div>
         </div>
         <div class="notice" id="pose-off" hidden>
-          Tool position is unknown until J1&ndash;J5 are calibrated. <a href="#calibrate">Open calibration &rarr;</a>
+          Tool position is unknown until J1&ndash;J5 are calibrated. <a href="#calibrate">Open the robot's calibration page &rarr;</a>
         </div>
         <div class="jlist" id="jlist"></div>
       </div>
@@ -186,194 +212,6 @@
   </div>
 </main>
 
-<!-- ═════════════════════════ CALIBRATE ═════════════════════════ -->
-<main class="view" id="view-calibrate" hidden>
-  <div class="hud-col hud-left">
-    <details class="card" data-panel="calibrate.pick" open>
-      <summary class="card-head"><span class="idx">01</span><h2>Select joint</h2></summary>
-      <div class="card-body"><div class="jpick" id="jpick" role="tablist"></div></div>
-    </details>
-
-    <details class="card" data-panel="calibrate.live" open>
-      <summary class="card-head">
-        <span class="idx">02</span><h2>Live &middot; <span id="cal-jname">J1 Base</span></h2><span class="spacer"></span>
-        <span class="led" id="cal-led" title="Moving"></span>
-      </summary>
-      <div class="card-body">
-        <div class="readout2">
-          <div><span class="k">Steps</span><span class="v" id="cal-steps">—</span></div>
-          <div><span class="k">Angle &deg;</span><span class="v" id="cal-ang">—</span></div>
-        </div>
-        <div class="jogrow">
-          <button class="btn jog" id="cal-jog-neg">&minus; Jog</button>
-          <div id="seg-cal" aria-label="Jog step (steps)"></div>
-          <button class="btn jog" id="cal-jog-pos">+ Jog</button>
-        </div>
-        <p class="hint">Jog step is in motor steps. Press <b>Esc</b> or <b>STOP</b> at any time.</p>
-      </div>
-    </details>
-  </div>
-
-  <div class="hud-col hud-right">
-    <details class="card" data-panel="calibrate.proc" open>
-      <summary class="card-head">
-        <span class="idx">03</span><h2>Calibration procedure</h2><span class="spacer"></span>
-        <span class="badge" id="cal-state">—</span>
-      </summary>
-      <ol class="steps">
-        <li class="step" id="st-1">
-          <div class="step-n">1</div>
-          <div class="step-b">
-            <h3>Set reference</h3>
-            <p class="hint">Put the joint on its alignment marks and enter the angle that pose represents (usually 0).
-              The current position becomes 0 steps.</p>
-            <div class="row">
-              <label class="field"><span>Alignment angle</span>
-                <span class="inp"><input type="number" id="cal-home" value="0" step="any"/><i>&deg;</i></span></label>
-              <button class="btn primary" id="cal-setref">Set reference</button>
-            </div>
-          </div>
-        </li>
-
-        <li class="step" id="st-2">
-          <div class="step-n">2</div>
-          <div class="step-b">
-            <h3>Measure 90&deg;</h3>
-            <p class="hint">Jog until the joint is exactly 90&deg; from the alignment pose, then press the direction you
-              turned. Finish with small steps in one direction; if you overshoot, back off past 90&deg; and come in
-              again so backlash doesn't skew the reading.</p>
-            <div class="actions">
-              <button class="btn primary" id="cal-at90p">Joint is at +90&deg;</button>
-              <button class="btn" id="cal-at90n">Joint is at &minus;90&deg;</button>
-            </div>
-            <div class="fit" id="cal-fit"></div>
-          </div>
-        </li>
-
-        <li class="step" id="st-3">
-          <div class="step-n">3</div>
-          <div class="step-b">
-            <h3>Limits &amp; save</h3>
-            <label class="field"><span>Steps per degree (sign = direction)</span>
-              <span class="inp"><input type="number" id="cal-spd" value="0" step="any"/><i>st/&deg;</i></span></label>
-            <div class="lim-grid">
-              <div class="field"><span>Min</span>
-                <span class="inp"><input type="number" id="cal-min" value="-180" step="any"/><i>&deg;</i></span>
-                <button type="button" class="btn sm ghost" id="cal-usemin">&larr; Use current</button></div>
-              <div class="field"><span>Max</span>
-                <span class="inp"><input type="number" id="cal-max" value="180" step="any"/><i>&deg;</i></span>
-                <button type="button" class="btn sm ghost" id="cal-usemax">&larr; Use current</button></div>
-            </div>
-            <div class="actions">
-              <label class="check"><input type="checkbox" id="cal-lim"/> Enforce soft limits</label>
-              <span class="grow"></span>
-              <span class="badge warn" id="cal-dirty" hidden>Unsaved</span>
-              <button class="btn primary" id="cal-save">&#10003; Save to robot</button>
-            </div>
-          </div>
-        </li>
-
-        <li class="step" id="st-4">
-          <div class="step-n">4</div>
-          <div class="step-b">
-            <h3>Verify</h3>
-            <div class="actions">
-              <button class="btn" id="cal-go90p">Turn to +90&deg;</button>
-              <button class="btn" id="cal-go90n">Turn to &minus;90&deg;</button>
-              <button class="btn ghost" id="cal-goref">Back to reference</button>
-            </div>
-            <p class="hint">Check 90&deg; with the same tool, then go back and check the alignment marks line up.
-              A consistent error at 90&deg; means redo step 2. Marks that don't line up again mean the motor is
-              skipping steps: lower speed/accel or raise the driver current.</p>
-          </div>
-        </li>
-      </ol>
-      <div class="card-body">
-        <details>
-          <summary>How to measure 90&deg; on each joint</summary>
-          <div class="dbody"><ul>
-            <li><b>J2, J3, J5 (pitch joints):</b> phone inclinometer app or a square on the link, e.g. vertical &rarr;
-              horizontal.</li>
-            <li><b>J1 base:</b> a square against the base, or 90&deg; marks on the base and the turntable.</li>
-            <li><b>J4 wrist roll:</b> with the forearm horizontal, an inclinometer on the flat face of the gripper
-              (level &rarr; vertical).</li>
-            <li>Turn in whichever direction is free; the button you press sets which way is positive.</li>
-            <li>Calibration is saved on the ESP32 and survives power cycles. The step counter does not: power on with
-              the arm on its alignment marks.</li>
-          </ul></div>
-        </details>
-        <details>
-          <summary>Angle conventions for tool (XYZ) control</summary>
-          <div class="dbody"><ul>
-            <li>The angles must match the arm model. Arm pointing straight up = all joints 0&deg;.</li>
-            <li><b>J1</b> positive counter-clockwise seen from above.</li>
-            <li><b>J2, J3, J5</b> positive bending forward (toward the reach).</li>
-            <li><b>J4</b> right-handed about the forearm (thumb toward the gripper).</li>
-            <li>If the alignment pose isn't straight up, enter its real angle in step 1.</li>
-          </ul></div>
-        </details>
-      </div>
-    </details>
-  </div>
-</main>
-
-<!-- ═════════════════════════ SETTINGS ═════════════════════════ -->
-<main class="view" id="view-settings" hidden>
-  <div class="hud-col hud-left">
-    <details class="card" data-panel="settings.conn" open>
-      <summary class="card-head"><span class="idx">01</span><h2>Robot connection</h2><span class="spacer"></span>
-        <span class="badge" id="set-mode">—</span></summary>
-      <form class="card-body" id="set-form">
-        <p class="hint">Movens Link starts in <b>simulation</b>: every feature drives a virtual arm in the 3D view, so
-          positions and sequences can be prepared without the robot. Connect to switch to the real arm;
-          disconnecting stops the arm and returns to simulation.</p>
-        <div class="row">
-          <label class="field grow2"><span>Robot address</span>
-            <input type="text" class="text" id="set-host" spellcheck="false" placeholder="192.168.4.1"/></label>
-          <button type="submit" class="btn primary" id="set-connect">Connect</button>
-          <button type="button" class="btn" id="set-test" title="Check the robot answers, without connecting">Test</button>
-          <button type="button" class="btn ghost" id="set-disconnect" hidden>Disconnect</button>
-        </div>
-        <div class="result" id="set-res"></div>
-        <details open>
-          <summary>Connecting over WiFi</summary>
-          <div class="dbody"><ul>
-            <li>The arm runs its own WiFi access point. Join the network <b>movens</b> (password <b>movens_1234</b>,
-              unless changed in <code>movens_config.h</code>) from this computer.</li>
-            <li>The robot then answers at <b>192.168.4.1</b>. Use <b>localhost:8080</b> for the stand-alone mock
-              robot (<code>npm run mock</code>).</li>
-            <li>The simulated arm uses its own calibration; taught positions in degrees work on the real arm once
-              its joints are calibrated to the same conventions.</li>
-            <li>Joint-space positions and sequence speeds need firmware with the <code>/movejoints</code>
-              endpoint (the movens repository's current <code>movens</code> firmware).</li>
-          </ul></div>
-        </details>
-      </form>
-    </details>
-    <details class="card" data-panel="settings.motion" open>
-      <summary class="card-head"><span class="idx">02</span><h2>Motion settings</h2></summary>
-      <div class="card-body">
-        <table class="tbl">
-          <thead><tr><th>Joint</th><th>Speed <span class="unit">steps/s</span></th><th>Accel <span class="unit">steps/s&sup2;</span></th></tr></thead>
-          <tbody id="cfg-body"></tbody>
-        </table>
-        <p class="hint">Changed values are outlined. Settings last until the robot restarts.</p>
-        <div class="actions"><span class="grow"></span>
-          <button class="btn ghost" id="cfg-revert">Revert</button>
-          <button class="btn primary" id="cfg-apply">Apply changes</button>
-        </div>
-      </div>
-    </details>
-    <details class="card" data-panel="settings.keys" open>
-      <summary class="card-head"><span class="idx">03</span><h2>Keyboard</h2></summary>
-      <div class="card-body"><ul class="keys">
-        <li><kbd>Esc</kbd> Stop all motors and any running sequence</li>
-        <li><kbd>Enter</kbd> In the 3D view with Tool/Joint drag in Preview mode: move to the ghost</li>
-        <li><kbd>Shift</kbd> + wheel In Tool drag: change the tool pitch by 5&deg;</li>
-      </ul></div>
-    </details>
-  </div>
-</main>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>

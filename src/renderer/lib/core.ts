@@ -41,7 +41,6 @@ type Events = {
   estop: void
   library: void
   preview: 'position' | 'step'  // which panel's pick the ghost now shows
-  view: string
   host: string
   mode: Mode
 }
@@ -101,10 +100,10 @@ export function renderConn() {
   $('conn-status').textContent = connecting ? 'Connecting' : !robot ? 'Simulation'
     : state.connected ? 'Online' : state.connected === false ? 'Offline' : 'Connecting'
   $('conn-host').textContent = robot ? state.host : 'virtual arm'
-  const b = $<HTMLButtonElement>('btnConn')
-  b.textContent = connecting ? 'Connecting…' : robot ? 'Disconnect' : 'Connect'
+  const b = $<HTMLButtonElement>('set-connect')
+  b.textContent = connecting ? 'Connecting…' : robot ? 'Reconnect' : 'Connect'
   b.disabled = connecting
-  b.classList.toggle('primary', !robot)
+  $('set-disconnect').hidden = !robot
   document.body.classList.toggle('sim-mode', !robot)
 }
 
@@ -298,6 +297,8 @@ export function startPolling() {
   renderConn()
   emit('mode', state.mode)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) schedulePoll(0) })
+  // Back from the robot's calibration page: pick up what was saved there
+  window.addEventListener('focus', () => { calibPending = true })
   pollStatus()
 }
 

@@ -27,9 +27,6 @@ export interface JointCal {
 /** GET /calib, keyed 'j1'..'j5' */
 export type Calib = Record<string, JointCal>
 
-/** GET /config, keyed 'j1'..'j5' */
-export type MotionConfig = Record<string, { speed: number; accel: number }>
-
 export interface Pose {
   x: number
   y: number

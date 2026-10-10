@@ -163,7 +163,6 @@ function claim() {
 }
 
 function updatePreview() {
-  if (!$('view-control').classList.contains('active')) return
   const p = owns ? draft ?? (selected ? findPosition(selected) : null) : null
   const deg = p ? positionDegrees(p, state.calib, statusDegrees()) : null
   $('pos-preview-name').textContent = p ? (deg ? `Ghost: ${p.name}` : `${p.name}: no preview`) : ''

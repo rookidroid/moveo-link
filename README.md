@@ -15,24 +15,26 @@ It talks to the ESP32 firmware's REST API (`FIRMWARE/movens`) and adds positions
 
 ## Features
 
-**Everything the firmware's web page does:**
+**What the firmware's control page does:**
 - Arm state: tool pose, joint angles and steps, and soft-limit meters.
 - Go to origin and the E-stop (STOP button or <kbd>Esc</kbd>).
 - Tool (XYZ) stepping and go-to-pose with a reach check, and joint stepping and targets in degrees: in the
   panel that comes up when the gripper or a link is clicked in the 3D view (see below).
-- Motion settings (speed / acceleration), on the Settings tab.
 - Gripper servo.
-- The 4-step joint calibration wizard.
+
+Setting the arm up stays with the firmware: calibrate each joint, with its speed and acceleration, on the
+robot's own page at `http://<robot address>/calibrate`. Where a joint is not calibrated the app links there,
+and it reads the calibration again when its window comes back to the front.
 
 **Simulation first:** the app starts in simulation mode and never contacts the robot until you press
-**Connect** (app bar or Settings). Every feature, including the 3D view, positions and sequences, then drives
-a built-in virtual arm, so motions can be prepared and rehearsed offline. Disconnecting stops the arm and goes
-back to the simulation. If the robot stops answering while connected, the app shows **Offline** and stays on
-the robot (it never silently switches to the simulation).
+**Connect** (in the panel under the connection chip in the app bar). Every feature, including the 3D view,
+positions and sequences, then drives a built-in virtual arm, so motions can be prepared and rehearsed offline.
+Disconnecting stops the arm and goes back to the simulation. If the robot stops answering while connected, the
+app shows **Offline** and stays on the robot (it never silently switches to the simulation).
 
 **New:**
-- **3D view.** Fills the window behind every tab; the controls lie over it as panels that fold away and
-  stay as you left them. A live model of the arm and a translucent *ghost* for previews.
+- **3D view.** Fills the window; the controls lie over it as panels that fold away and stay as you left
+  them. A live model of the arm and a translucent *ghost* for previews.
   - Trail of the tool path.
   - Camera presets (Iso, Front, Side, Top).
 - **Mouse teleoperation** in the 3D view, picked by clicking the arm. Click anywhere else to go back to orbiting; a preview stays up until you move to it or reset it:
@@ -40,8 +42,8 @@ the robot (it never silently switches to the simulation).
   - *Joint drag*: click a link to pick its joint, then drag the ring around the joint axis. Blue **+** and orange **−** arrows on the ring show which way the joint's angle grows, as in [Joint directions](#joint-directions).
   - Either brings up a panel with the same target in numbers: type a value, or step it with the **−** / **+** buttons by the chosen step (1, 5, 10 or 50 mm or degrees). *Snap drag* makes dragging move in whole steps too.
   - *Preview* mode moves the arm on **Move** or <kbd>Enter</kbd>. *Live* mode follows the drag, throttled to one request at a time at a capped speed.
-- **Positions** (left, under the arm's state) and **Sequences** (right) are panels of the Control tab, beside
-  the arm they drive.
+- **Positions** (left, under the arm's state) and **Sequences** (right) are panels beside the arm
+  they drive.
 - **Positions:**
   - Save the current arm position, or enter a tool pose or joint angles by hand.
   - Edit, convert between joints and tool pose, preview as a ghost, and go there at a chosen speed.
@@ -95,7 +97,7 @@ points straight up. Each diagram below shows a base pose (solid) and the same po
 npm install
 npm run dev           # Electron app with hot reload (starts in simulation)
 npm run mock          # stand-alone simulated robot over HTTP on localhost:8080 (-- --uncalibrated
-                      # to test calibration); connect the app to localhost:8080 to test the real path
+                      # for an arm that is not set up); connect the app to localhost:8080 to test the real path
 npm run web           # renderer only, in a browser at localhost:5180; Connect goes to the mock via a proxy
 npm test              # unit tests (kinematics, simulator, sequence runner, storage)
 npm run typecheck
@@ -114,7 +116,7 @@ The positions and sequences library is stored in `%APPDATA%\Movens Link\library.
 | `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `movens_config.h` |
 | `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`, its floor in `floor.ts`), sequence runner, library |
 | `src/renderer/styles/` | `app.css` (the firmware's stylesheet), `link.css` (additions), `hud.css` (the full-window 3D view and the panels over it) |
-| `src/renderer/views/` | Control (with its Positions and Sequences panels), Calibrate, Settings |
+| `src/renderer/views/` | Control (with its Positions and Sequences panels) and the connection panel |
 | `src/shared/simRobot.ts` | Simulated robot (same REST API as the firmware), used by simulation mode and the mock |
 | `scripts/mock-robot.ts` | HTTP wrapper around the simulated robot |
 | `scripts/joint-diagrams/` | Draws `docs/joints/*.png` with the 3D view's arm model (`src/renderer/lib/armModel.ts`) |

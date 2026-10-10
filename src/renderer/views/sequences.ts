@@ -295,7 +295,6 @@ function markSelected() {
 /** Tool path through the move steps, while the panel is open or the sequence
  *  runs; joint angles chain from step to step */
 function renderPath() {
-  if (!$('view-control').classList.contains('active')) return
   const s = current()
   const view = armView()
   if (!s || !(seqRunner.busy || $<HTMLDetailsElement>('seq-card').open)) {

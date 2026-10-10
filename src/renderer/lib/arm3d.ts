@@ -1,4 +1,4 @@
-// 3D view of the arm (three.js), filling the window behind every tab's panels:
+// 3D view of the arm (three.js), filling the window behind the panels:
 // live arm from /status, a translucent "ghost" for previews, the tool path of a
 // sequence, and mouse teleoperation:
 //   Tool drag   click the gripper: move a gizmo on the fingertip, tilt it with
@@ -45,8 +45,6 @@ const TOOL_FIELDS = [
 ]
 
 type Mode = 'view' | 'tool' | 'joint'
-export type ViewHost = 'control' | 'calibrate' | 'settings'
-const TELE_HOSTS: ViewHost[] = ['control']  // tabs with mouse teleoperation
 
 export class ArmView {
   readonly root = document.createElement('div')
@@ -75,7 +73,6 @@ export class ArmView {
 
   // Previews set by the active view
   private previewDeg: number[] | null = null
-  private host: ViewHost = 'control'
   private insets = [0, 0]  // px of the view covered by the panels on its left and right
 
   // Teleoperation
@@ -248,21 +245,11 @@ export class ArmView {
     })
     window.addEventListener('keydown', e => this.onKey(e))
     this.updateMessage()
+    this.updateHud()
   }
 
   private q<T extends HTMLElement = HTMLElement>(sel: string) {
     return (sel.startsWith('.') ? this.root.querySelector(sel) : this.root.querySelector(`[data-r="${sel}"]`)) as T
-  }
-
-  /** The tab now shown over the view */
-  setHost(host: ViewHost) {
-    if (this.host !== host) this.setMode('view')
-    this.host = host
-    this.previewDeg = null
-    this.setPath([])
-    this.updateHud()
-    this.updateGhost()
-    this.resize()
   }
 
   /** Width of the view covered by the panels on each side: the arm and the
@@ -304,7 +291,7 @@ export class ArmView {
     msg.hidden = ok
     if (!ok) msg.innerHTML = state.connected === false
       ? 'Robot offline'
-      : 'Calibrate J1&ndash;J5 to see the arm. <a href="#calibrate">Open calibration &rarr;</a>'
+      : 'Calibrate J1&ndash;J5 to see the arm. <a href="#calibrate">Open the robot&rsquo;s calibration page &rarr;</a>'
     this.live.group.visible = ok
     if (!ok && this.mode !== 'view') this.setMode('view')
   }
@@ -395,12 +382,12 @@ export class ArmView {
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
     // The arm is framed in what the side panels and the view's own controls leave clear.
-    // Where clicking the arm picks it up, room is kept for the panel that brings up: the
-    // arm stays put under the pointer. A free area too narrow or too low for the arm
+    // Room is kept for the panel that clicking the arm brings up: the arm stays put
+    // under the pointer. A free area too narrow or too low for the arm
     // widens the field of view until it fits
     const [left, right] = this.insets
     const top = this.q('.a3-top').offsetHeight
-    const bottom = Math.max(this.q('.a3-bottom').offsetHeight, TELE_HOSTS.includes(this.host) ? TELE_ROOM : 0)
+    const bottom = Math.max(this.q('.a3-bottom').offsetHeight, TELE_ROOM)
     const fov = 38, minAspect = 0.85, minHeight = 0.64  // of the view's height, which the presets fill
     const wider = Math.max(1, minAspect * h / Math.max(w - left - right, 1), minHeight * h / Math.max(h - top - bottom, 1))
     this.camera.fov = Math.min(70, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * wider) * 180 / Math.PI)
@@ -567,8 +554,7 @@ export class ArmView {
       this.held ? 'Preview kept · Enter: move · Click the gripper or a link to drag it again · Drag: orbit' :
       this.mode === 'tool' ? 'Drag the arrows / planes · Ring or Shift+wheel: pitch · Enter: move · Click away: done' :
       this.mode === 'joint' ? 'Drag the ring · Click another link to switch · Enter: move · Click away: done' :
-      (TELE_HOSTS.includes(this.host) ? 'Click the gripper or a link to drag it · ' : '') +
-        'Drag: orbit · Right-drag: pan · Wheel: zoom'
+      'Click the gripper or a link to drag it · Drag: orbit · Right-drag: pan · Wheel: zoom'
     if (tele) this.updateResult()
   }
 
@@ -706,9 +692,8 @@ export class ArmView {
     this.press = [e.clientX, e.clientY]
   }
 
-  /** The part of the arm under the pointer, on the tabs where a click picks it up */
+  /** The part of the arm under the pointer */
   private partAt(ray: THREE.Raycaster): THREE.Object3D | null {
-    if (!TELE_HOSTS.includes(this.host)) return null
     const arms = this.mode === 'view' ? this.live.parts : [...this.ghost.parts, ...this.live.parts]
     return ray.intersectObjects(arms, false).find(h => h.object.visible && h.object.parent?.visible)?.object ?? null
   }
@@ -716,7 +701,6 @@ export class ArmView {
   /** A click picks what the mouse then drags: the gripper for the tool, a link
    *  for its joint; a click on nothing lets go, back to orbiting */
   private pick(e: PointerEvent) {
-    if (!TELE_HOSTS.includes(this.host)) return
     const joint: number | undefined = this.partAt(this.rayAt(e))?.userData.joint
     if (!joint) this.letGo()
     else {

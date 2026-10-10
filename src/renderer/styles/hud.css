@@ -1,5 +1,5 @@
-/* The workspace: the 3D view fills the window under the app bar, and every tab
-   lays its panels over it. On top of app.css and link.css. */
+/* The workspace: the 3D view fills the window under the app bar, and the
+   panels lie over it. On top of app.css and link.css. */
 
 html,body{height:100%}
 body{display:flex;flex-direction:column;overflow:hidden}
@@ -35,7 +35,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .stage .card::before,.stage .card::after{content:none}
 .stage select option{color:var(--ink);background:#0d161a}
 
-/* A tab's panels, in a column down each side of the view; the middle stays clear */
+/* The panels, in a column down each side of the 3D view; the middle stays clear */
 .view{position:absolute;inset:0;pointer-events:none}
 .hud-col{position:absolute;top:12px;display:flex;flex-direction:column;gap:8px;width:fit-content;
   max-height:calc(100% - 24px);overflow:hidden auto;scrollbar-width:thin;scrollbar-gutter:stable;
@@ -47,8 +47,6 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .hud-right > .card[open]{width:var(--col-r)}
 /* Control: the arm on the left, the library on the right, the view centred between */
 #view-control{--col-l:clamp(320px,25vw,384px);--col-r:var(--col-l)}
-#view-calibrate{--col-l:clamp(300px,25vw,380px);--col-r:clamp(380px,33vw,500px)}
-#view-settings{--col-l:clamp(400px,40vw,600px)}
 
 /* A panel folds to its title */
 .stage summary.card-head{height:auto;font-size:inherit;color:var(--ink);user-select:none}
@@ -78,8 +76,6 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .stage .meter.off{height:auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .stage .pform{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stage .actions.pair{display:grid;grid-template-columns:1fr 1fr}
-.stage .jp{padding:6px 4px}
-.stage .jp .nm{max-width:100%;overflow:hidden;font-size:10.5px;font-weight:500;text-overflow:ellipsis}
 
 /* ── 3D view controls ──────────────────────────────────── */
 /* Over the part of the view the panels leave clear: the target being dragged,

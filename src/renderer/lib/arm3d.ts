@@ -187,7 +187,7 @@ export class ArmView {
     this.gizmo.addEventListener('objectChange', () => this.onHandleMoved())
     this.scene.add(this.gizmo.getHelper())
 
-    this.ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.045, 10, 72),
+    this.ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.02, 10, 96),
       new THREE.MeshBasicMaterial({ color: 0xffaa00, depthTest: false, transparent: true, opacity: 0.95 }))
     this.ring.renderOrder = 6
     this.ringPick = new THREE.Mesh(new THREE.TorusGeometry(1, 0.16, 6, 48),
@@ -765,9 +765,9 @@ export class ArmView {
     for (const [sign, color, text] of [[1, this.css('--plus'), '+'], [-1, this.css('--minus'), '−']] as const) {
       const mat = new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true })
       const stop = sweep - head / R
-      const arc = new THREE.Mesh(new THREE.TorusGeometry(R, 0.05, 8, 24, stop), mat)
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(R, 0.03, 8, 24, stop), mat)
       if (sign < 0) arc.rotation.z = -stop
-      const coneGeo = new THREE.ConeGeometry(0.12, head, 16)
+      const coneGeo = new THREE.ConeGeometry(0.09, head, 16)
       coneGeo.translate(0, head / 2, 0)
       const cone = new THREE.Mesh(coneGeo, mat)
       const base = at(sign * stop), tip = at(sign * sweep)

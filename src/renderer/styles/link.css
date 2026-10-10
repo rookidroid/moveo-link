@@ -1,31 +1,6 @@
 /* movens-link additions on top of the firmware stylesheet (app.css) */
 
-.layout{max-width:none}
 .view[hidden]{display:none!important}
-@media (min-width:900px){
-  .layout.wide{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
-  /* The 3D column stays in view and fills the window height */
-  .layout.wide > .side:last-child{position:sticky;top:73px;height:calc(100vh - 89px)}
-  .layout.wide > .side:last-child .area-3d{flex:1 1 auto;min-height:0}
-  .layout.wide .a3-stage{min-height:240px}
-
-  /* Control: 3D view beside the motion controls; it grows with the window */
-  .layout.control{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
-    grid-template-areas:"v3d ctrl" "state grip";
-    grid-template-rows:minmax(max(380px, 100vh - 380px), auto) auto}
-  .control .area-3d{grid-area:v3d;align-self:stretch}
-  .control .area-state{grid-area:state}
-  .control .area-ctrl{grid-area:ctrl}
-  .control .area-grip{grid-area:grip}
-  .layout.single{grid-template-columns:minmax(0,820px);justify-content:center}
-}
-.layout.single{display:flex;flex-direction:column;align-items:stretch;max-width:860px}
-/* Wide / maximized windows: three columns, the 3D view takes the full height */
-@media (min-width:1500px){
-  .layout.control{grid-template-columns:minmax(340px,1fr) minmax(0,1.7fr) minmax(420px,1.1fr);
-    grid-template-areas:"state v3d ctrl" "grip v3d ctrl";
-    grid-template-rows:auto 1fr;min-height:calc(100vh - 57px)}
-}
 
 .grow2{flex:2 1 220px!important}
 .mono{font:12px var(--mono);font-variant-numeric:tabular-nums}
@@ -47,39 +22,11 @@ select{font:13px var(--sans);cursor:pointer}
 .led.sim{background:var(--accent);box-shadow:0 0 6px var(--accent)}
 .badge.sim{color:var(--accent);border-color:var(--accent)}
 .conn .btn{margin-left:4px;letter-spacing:.08em}
-.a3-mode{position:absolute;top:10px;left:10px;z-index:2;pointer-events:none}
-body:not(.sim-mode) .a3-mode{display:none}
 .run-chip{padding:3px 8px;font:700 10.5px var(--mono);color:var(--accent-ink);background:var(--accent);
   border-radius:var(--r);text-transform:none;letter-spacing:.04em}
 
-/* ── 3D view ───────────────────────────────────────────── */
-.area-3d{display:flex;flex-direction:column}
-.a3-host{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
-.arm3d{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
-.a3-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 12px;border-bottom:1px solid var(--line)}
-.a3-bar .grp{display:flex;align-items:center;gap:8px}
-.a3-bar .speed input{width:110px}
-.arm3d:not(.tele-on) .a3-bar .tele{display:none}
-.arm3d.no-tele .a3-bar{display:none}
-.arm3d.locked .a3-bar{opacity:.5;pointer-events:none}
-.a3-stage{position:relative;flex:1 1 auto;min-height:340px;overflow:hidden;background:var(--inset)}
-/* Absolutely placed so the canvas never props its container open while resizing */
-.a3-stage canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;touch-action:none}
-.a3-cams{position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2}
-.a3-cams .btn{background:color-mix(in srgb,var(--panel) 85%,transparent)}
-.a3-msg{position:absolute;inset:auto 12px 40px 12px;z-index:2;padding:10px 12px;font-size:12.5px;
-  background:var(--warn-soft);border:1px solid var(--warn);border-left-width:3px;backdrop-filter:blur(4px)}
-.a3-help{position:absolute;left:10px;bottom:8px;z-index:2;font:10.5px var(--mono);color:var(--ink-3);pointer-events:none}
-.a3-hud{display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
-.a3-tool{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.a3-joints{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 16px}
-.a3-j{display:grid;grid-template-columns:28px minmax(0,1fr) 64px;align-items:center;gap:8px;padding:0 4px;
-  border-left:2px solid transparent}
-.a3-j.sel{border-left-color:var(--warn);background:var(--warn-soft)}
-.a3-j .mono{text-align:right}
-
 /* ── Positions ─────────────────────────────────────────── */
-.plist{display:flex;flex-direction:column;border:1px solid var(--line);max-height:calc(100vh - 260px);overflow:auto}
+.plist{display:flex;flex-direction:column;border:1px solid var(--line);max-height:46vh;overflow:auto}
 .prow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 10px;
   border-top:1px solid var(--line);cursor:pointer}
 .prow:first-child{border-top:0}

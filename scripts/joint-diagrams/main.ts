@@ -95,21 +95,20 @@ function arm(deg: number[], kind: 'solid' | 'plus' | 'minus', joint?: number) {
     const mat = p.material as THREE.MeshStandardMaterial
     if (kind !== 'solid') mat.opacity = 0.34
   }
-  if (kind === 'solid' && joint) {
-    const hub = m.parts.find(p => p.name === HUBS[joint - 1])!
-    hub.material = new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.5, metalness: 0.1 })
+  if (kind === 'solid' && joint) {  // the joint's housing and its caps
+    const accent = new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.5, metalness: 0.1 })
+    for (const p of m.parts) if (p.name.startsWith(HUBS[joint - 1])) p.material = accent
   }
   m.update(deg, 1500)
   return m.group
 }
 
 /** Hide ghost parts that coincide with the solid arm (they would only tint it).
- *  Parts are cylinders along their local Y, so a spin about that axis doesn't count. */
+ *  A turned part is posed by its axis alone, so a spin about that axis doesn't count. */
 function hideUnmoved(ghost: THREE.Group, solid: THREE.Group) {
   for (const part of ghost.children) {
     const twin = solid.getObjectByName(part.name)!
-    const axis = (o: THREE.Object3D) => Y_AXIS.clone().applyQuaternion(o.quaternion)
-    part.visible = part.position.distanceTo(twin.position) > 0.5 || axis(part).angleTo(axis(twin)) > 1e-3
+    part.visible = part.position.distanceTo(twin.position) > 0.5 || part.quaternion.angleTo(twin.quaternion) > 1e-3
   }
 }
 

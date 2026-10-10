@@ -1,8 +1,7 @@
 // Control view: port of the firmware's control page (web_index_html.h),
-// plus the 3D view and "Save position".
+// plus "Save position".
 
 import { uid, type MotionConfig, type Status } from '@shared/types'
-import { armView } from '../lib/arm3d'
 import {
   $, api, cal, confirmTap, fmt, isCal, JOINT_NAMES, N, on, pref, seg, setPref, showToast, state
 } from '../lib/core'
@@ -304,8 +303,4 @@ export async function teachCurrent(): Promise<void> {
   lib.positions.push(p)
   changed()
   showToast(`Saved ${name}` + (p.joints?.unit === 'steps' ? ' (in steps: arm not calibrated)' : ''))
-}
-
-export function showControl() {
-  armView().mount($('a3-control'), 'control')
 }

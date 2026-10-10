@@ -31,7 +31,8 @@ back to the simulation. If the robot stops answering while connected, the app sh
 the robot (it never silently switches to the simulation).
 
 **New:**
-- **3D view.** A live model of the arm and a translucent *ghost* for previews.
+- **3D view.** Fills the window behind every tab; the controls lie over it as panels that fold away and
+  stay as you left them. A live model of the arm and a translucent *ghost* for previews.
   - Trail of the tool path.
   - Camera presets (Iso, Front, Side, Top).
 - **Mouse teleoperation** in the 3D view:
@@ -108,7 +109,8 @@ The positions and sequences library is stored in `%APPDATA%\Movens Link\library.
 | `src/main/` | Electron main process: robot HTTP client (`robot.ts`), JSON storage (`store.ts`) |
 | `src/preload/` | `window.movens` bridge (IPC) |
 | `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `movens_config.h` |
-| `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`), sequence runner, library |
+| `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`, its floor in `floor.ts`), sequence runner, library |
+| `src/renderer/styles/` | `app.css` (the firmware's stylesheet), `link.css` (additions), `hud.css` (the full-window 3D view and the panels over it) |
 | `src/renderer/views/` | Control, Positions, Sequences, Calibrate, Settings |
 | `src/shared/simRobot.ts` | Simulated robot (same REST API as the firmware), used by simulation mode and the mock |
 | `scripts/mock-robot.ts` | HTTP wrapper around the simulated robot |

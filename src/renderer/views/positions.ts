@@ -88,7 +88,6 @@ export function initPositions() {
 }
 
 export function showPositions() {
-  armView().mount($('a3-positions'), 'positions')
   updatePreview()
 }
 

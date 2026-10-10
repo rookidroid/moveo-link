@@ -10,7 +10,7 @@ export default defineConfig({
   publicDir: resolve('logo'),
   resolve: { alias: { '@shared': resolve('src/shared') } },
   server: {
-    port: 5180,
+    port: +(process.env.PORT || 5180),
     proxy: { '/robot': { target: `http://${host}`, rewrite: p => p.replace(/^\/robot/, '') } }
   }
 })

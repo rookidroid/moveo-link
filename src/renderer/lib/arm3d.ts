@@ -1,5 +1,6 @@
-// 3D view of the arm (three.js): live arm from /status, a translucent "ghost"
-// for previews, the tool path of a sequence, and mouse teleoperation:
+// 3D view of the arm (three.js), filling the window behind every tab's panels:
+// live arm from /status, a translucent "ghost" for previews, the tool path of a
+// sequence, and mouse teleoperation:
 //   Tool drag   move a gizmo on the fingertip, tilt it with the ring around
 //               it; IK solves the arm (ghost), stopping at the edge of reach
 //   Joint drag  click a link, drag its ring to turn that one joint
@@ -17,6 +18,7 @@ import {
   showToast, state, statusDegrees, type Seg
 } from './core'
 import { promptText } from './dialog'
+import { makeFloor } from './floor'
 import { changed, lib, nextName } from './library'
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
@@ -28,12 +30,9 @@ const MARK_DEG = 40  // the + / − arrows on the joint ring sweep this far each
 const BADGE_MM = 34  // size of their + / − badges
 const PLANAR_TOL = 0.5  // deg: approach this close to the arm plane counts as planar
 
-function cssVar(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888'
-}
-
 type Mode = 'view' | 'tool' | 'joint'
-export type ViewHost = 'control' | 'positions' | 'sequences'
+export type ViewHost = 'control' | 'positions' | 'sequences' | 'calibrate' | 'settings'
+const TELE_HOSTS: ViewHost[] = ['control', 'positions']  // tabs with mouse teleoperation
 
 export class ArmView {
   readonly root = document.createElement('div')
@@ -63,6 +62,7 @@ export class ArmView {
   // Previews set by the active view
   private previewDeg: number[] | null = null
   private host: ViewHost = 'control'
+  private insets = [0, 0]  // px of the view covered by the panels on its left and right
 
   // Teleoperation
   private mode: Mode = 'view'
@@ -76,6 +76,7 @@ export class ArmView {
   private lastGoodSol: number[] | null = null
   private jointDeg: number[] | null = null
   private jointSel = 0
+  private ringHot = false  // the pointer is over the ring
   private ringDrag: { axis: THREE.Vector3; pivot: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3
                       start: number; prev: number; acc: number } | null = null
   private liveBusy = false
@@ -85,60 +86,83 @@ export class ArmView {
 
   private segMode!: Seg<Mode>
 
-  constructor() {
+  constructor(host: HTMLElement) {
     this.root.className = 'arm3d'
+    host.appendChild(this.root)
     this.root.innerHTML = `
-      <div class="a3-bar">
-        <div class="grp"><span class="lbl">Mouse</span><div data-r="mode"></div></div>
-        <div class="grp tele"><span class="lbl">Follow</span><div data-r="follow"></div></div>
-        <div class="grp tele"><span class="lbl">Snap</span><div data-r="snap"></div></div>
-        <label class="grp tele speed"><span class="lbl">Speed</span>
-          <input type="range" min="5" max="100" step="5" data-r="speed"/><span class="mono" data-r="speedv"></span></label>
-      </div>
-      <div class="a3-stage">
-        <div class="a3-cams">
-          <button type="button" class="btn sm ghost" data-cam="iso">Iso</button>
-          <button type="button" class="btn sm ghost" data-cam="front">Front</button>
-          <button type="button" class="btn sm ghost" data-cam="side">Side</button>
-          <button type="button" class="btn sm ghost" data-cam="top">Top</button>
-          <button type="button" class="btn sm ghost" data-r="trail" title="Show the recent tool path">Trail</button>
+      <div class="a3-stage"></div>
+      <div class="a3-chrome">
+        <div class="a3-top">
+          <div class="a3-bar card">
+            <span class="badge sim a3-mode" title="Not connected: this is the simulated arm">Simulation</span>
+            <div class="grp a3-mouse"><span class="lbl">Mouse</span><div data-r="mode"></div></div>
+          </div>
+          <div class="a3-msg" data-r="msg" hidden></div>
         </div>
-        <span class="badge sim a3-mode" title="Not connected: this is the simulated arm">Simulation</span>
-        <div class="a3-msg" data-r="msg" hidden></div>
-        <div class="a3-help" data-r="help"></div>
-      </div>
-      <div class="a3-hud" data-r="hud" hidden>
-        <div class="a3-tool" data-r="toolhud">
-          ${['x', 'y', 'z', 'pitch', 'yaw'].map(k => `<label class="field"><span>${k === 'pitch' ? 'Pitch' : k === 'yaw' ? 'Yaw' : k.toUpperCase()}</span>
-            <span class="inp"><input type="number" step="any" data-t="${k}" ${k === 'yaw' ? 'placeholder="auto"' : ''}/><i>${k.length > 1 ? '°' : 'mm'}</i></span></label>`).join('')}
-        </div>
-        <div class="a3-joints" data-r="jointhud">
-          ${[1, 2, 3, 4, 5].map(i => `<label class="a3-j" data-j="${i}"><span class="jtag">J${i}</span>
-            <input type="range" step="0.5" data-jr="${i}"/><span class="mono" data-jv="${i}">—</span></label>`).join('')}
-        </div>
-        <div class="result" data-r="res"></div>
-        <div class="actions">
-          <button type="button" class="btn ghost sm" data-r="reset">Reset to arm</button>
-          <button type="button" class="btn sm" data-r="save">Save as position</button>
-          <span class="grow"></span>
-          <button type="button" class="btn primary" data-r="go">Move &#9656;</button>
+        <div class="a3-bottom">
+          <div class="a3-hud card" data-r="hud" hidden>
+            <div class="a3-opts">
+              <div class="grp"><span class="lbl">Follow</span><div data-r="follow"></div></div>
+              <div class="grp"><span class="lbl">Snap</span><div data-r="snap"></div></div>
+              <label class="grp speed"><span class="lbl">Speed</span>
+                <input type="range" min="5" max="100" step="5" data-r="speed"/><span class="mono" data-r="speedv"></span></label>
+            </div>
+            <div class="a3-tool" data-r="toolhud">
+              ${['x', 'y', 'z', 'pitch', 'yaw'].map(k => `<label class="field"><span>${k === 'pitch' ? 'Pitch' : k === 'yaw' ? 'Yaw' : k.toUpperCase()}</span>
+                <span class="inp"><input type="number" step="any" data-t="${k}" ${k === 'yaw' ? 'placeholder="auto"' : ''}/><i>${k.length > 1 ? '°' : 'mm'}</i></span></label>`).join('')}
+            </div>
+            <div class="a3-joints" data-r="jointhud">
+              ${[1, 2, 3, 4, 5].map(i => `<label class="a3-j" data-j="${i}"><span class="jtag">J${i}</span>
+                <input type="range" step="0.5" data-jr="${i}"/><span class="mono" data-jv="${i}">—</span></label>`).join('')}
+            </div>
+            <div class="result" data-r="res"></div>
+            <div class="actions">
+              <button type="button" class="btn ghost sm" data-r="reset">Reset to arm</button>
+              <button type="button" class="btn sm" data-r="save">Save as position</button>
+              <span class="grow"></span>
+              <button type="button" class="btn primary" data-r="go">Move &#9656;</button>
+            </div>
+          </div>
+          <div class="a3-cams">
+            <button type="button" class="btn sm" data-cam="iso">Iso</button>
+            <button type="button" class="btn sm" data-cam="front">Front</button>
+            <button type="button" class="btn sm" data-cam="side">Side</button>
+            <button type="button" class="btn sm" data-cam="top">Top</button>
+            <button type="button" class="btn sm" data-r="trail" title="Show the recent tool path">Trail</button>
+          </div>
+          <div class="a3-help" data-r="help"></div>
         </div>
       </div>`
 
     const stage = this.q('.a3-stage')
     this.renderer = new THREE.WebGLRenderer({ antialias: true })
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
-    stage.prepend(this.renderer.domElement)
+    this.renderer.shadowMap.enabled = true
+    stage.append(this.renderer.domElement)
 
     this.camera.up.set(0, 0, 1)
     this.orbit = new OrbitControls(this.camera, this.renderer.domElement)
     this.orbit.addEventListener('change', () => this.invalidate())
     this.setCamera(pref('a3cam', 'iso'))
 
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6))
-    const sun = new THREE.DirectionalLight(0xffffff, 1.8)
-    sun.position.set(600, -400, 1400)
-    this.scene.add(sun)
+    // The sun casts the arm's shadow; a weak light from the other side keeps
+    // the faces turned away from it readable
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x24343a, 1.5))
+    const sun = new THREE.DirectionalLight(0xffffff, 2.1)
+    sun.position.set(500, -700, 1500)
+    sun.target.position.set(0, 0, 300)
+    sun.castShadow = true
+    sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.radius = 3
+    sun.shadow.normalBias = 1.5
+    const lit = sun.shadow.camera  // covers the arm's reach
+    lit.left = lit.bottom = -850
+    lit.right = lit.top = 850
+    lit.near = 200
+    lit.far = 3200
+    const fill = new THREE.DirectionalLight(0x9fdcea, 0.55)
+    fill.position.set(-600, 700, 400)
+    this.scene.add(sun, sun.target, fill)
     this.scene.add(this.grid, this.live.group, this.ghost.group, this.path)
     this.ghost.group.visible = false
 
@@ -175,13 +199,14 @@ export class ArmView {
 
     this.buildUi()
     this.applyTheme()
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.applyTheme())
-    new ResizeObserver(() => this.resize()).observe(stage)
+    const sizes = new ResizeObserver(() => this.resize())
+    for (const el of [stage, this.q('.a3-top'), this.q('.a3-bottom')]) sizes.observe(el)
 
     const el = this.renderer.domElement
     el.addEventListener('pointerdown', e => this.onPointerDown(e), { capture: true })
     el.addEventListener('pointermove', e => this.onPointerMove(e))
     el.addEventListener('pointerup', e => this.onPointerUp(e))
+    el.addEventListener('pointerleave', () => this.setRingHot(false))
     el.addEventListener('wheel', e => this.onWheel(e), { capture: true, passive: false })
 
     on('status', d => this.setLive(statusDegrees(d), d.servo ?? this.servo))
@@ -202,16 +227,28 @@ export class ArmView {
     return (sel.startsWith('.') ? this.root.querySelector(sel) : this.root.querySelector(`[data-r="${sel}"]`)) as T
   }
 
-  /** Move the view into a container (one WebGL context shared by all views) */
-  mount(container: HTMLElement, host: ViewHost) {
+  /** The tab now shown over the view */
+  setHost(host: ViewHost) {
     if (this.host !== host) this.setMode('view')
     this.host = host
-    container.appendChild(this.root)
-    this.root.classList.toggle('no-tele', host === 'sequences')
+    this.root.classList.toggle('no-tele', !TELE_HOSTS.includes(host))
     this.previewDeg = null
     this.setPath([])
     this.updateGhost()
+  }
+
+  /** Width of the view covered by the panels on each side: the arm and the
+   *  view's own controls are centred in what is left */
+  setInsets(left: number, right: number) {
+    if (left === this.insets[0] && right === this.insets[1]) return
+    this.insets = [left, right]
+    this.root.style.setProperty('--inset-l', left + 'px')
+    this.root.style.setProperty('--inset-r', right + 'px')
     this.resize()
+  }
+
+  private css(name: string): string {
+    return getComputedStyle(this.root).getPropertyValue(name).trim() || '#888'
   }
 
   // ── Live arm ───────────────────────────────────────────────────────────────
@@ -257,7 +294,7 @@ export class ArmView {
     const pts = points.filter((p): p is [number, number, number] => !!p).map(v3)
     if (pts.length > 1) {
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-        new THREE.LineDashedMaterial({ color: cssVar('--accent'), dashSize: 12, gapSize: 7 }))
+        new THREE.LineDashedMaterial({ color: this.css('--accent'), dashSize: 12, gapSize: 7 }))
       line.computeLineDistances()
       this.path.add(line)
     }
@@ -265,10 +302,10 @@ export class ArmView {
       if (!p) return
       const hot = i === active
       const dot = new THREE.Mesh(new THREE.SphereGeometry(hot ? 11 : 7, 16, 12),
-        new THREE.MeshBasicMaterial({ color: hot ? cssVar('--warn') : cssVar('--accent') }))
+        new THREE.MeshBasicMaterial({ color: hot ? this.css('--warn') : this.css('--accent') }))
       dot.position.copy(v3(p))
       this.path.add(dot)
-      const label = makeLabel(String(i + 1), hot ? cssVar('--warn') : cssVar('--ink'))
+      const label = makeLabel(String(i + 1), hot ? this.css('--warn') : this.css('--ink'))
       label.position.copy(v3(p)).add(new THREE.Vector3(0, 0, 26))
       this.path.add(label)
     })
@@ -289,11 +326,11 @@ export class ArmView {
     const edge = this.mode === 'tool' && this.clamped  // held at the edge of reach
     this.ghost.group.visible = !!deg
     if (deg) {
-      const c = cssVar(bad ? '--danger' : edge ? '--warn' : '--accent')
+      const c = this.css(bad ? '--danger' : edge ? '--warn' : '--accent')
       this.ghost.update(deg, this.servo)
       this.ghost.setColors(c, c)
     }
-    ;(this.handle.material as THREE.MeshBasicMaterial).color.set(bad ? cssVar('--danger') : edge ? cssVar('--warn') : '#ffffff')
+    ;(this.handle.material as THREE.MeshBasicMaterial).color.set(bad ? this.css('--danger') : edge ? this.css('--warn') : '#ffffff')
     this.updateRing()
     this.invalidate()
   }
@@ -317,6 +354,7 @@ export class ArmView {
       this.live.update(this.liveShown, this.servo)
     }
     if (!this.root.isConnected) return
+    if (this.ghost.group.visible) this.ghost.showApartFrom(this.live.group.visible ? this.live : null)
     this.renderer.render(this.scene, this.camera)
     if (animating) this.invalidate()
     else this.lastFrame = 0
@@ -328,35 +366,37 @@ export class ArmView {
     if (!w || !h) return
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
-    // Tall views widen the vertical field of view so the arm still fits sideways
-    const fov = 38, minAspect = 1.15
-    this.camera.fov = this.camera.aspect >= minAspect ? fov
-      : 2 * Math.atan(Math.tan(fov * Math.PI / 360) * minAspect / this.camera.aspect) * 180 / Math.PI
-    this.camera.updateProjectionMatrix()
+    // The arm is framed in what the side panels and the view's own controls leave clear.
+    // Narrow free areas widen the vertical field of view so the arm still fits sideways
+    const [left, right] = this.insets
+    const top = this.q('.a3-top').offsetHeight, bottom = this.q('.a3-bottom').offsetHeight
+    const fov = 38, minAspect = 0.85, free = Math.max(w - left - right, 1) / h
+    this.camera.fov = free >= minAspect ? fov
+      : Math.min(70, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * minAspect / free) * 180 / Math.PI)
+    this.camera.setViewOffset(w, h, (right - left) / 2, (bottom - top) / 2, w, h)
     this.invalidate()
   }
 
   private applyTheme() {
-    this.scene.background = new THREE.Color(cssVar('--inset'))
-    // Live arm in neutral greys; the accent colour is reserved for the ghost
-    this.live.setColors(cssVar('--ink-2'), cssVar('--ink-3'))
+    const background = this.css('--view-bg')
+    this.scene.background = new THREE.Color(background)
+    // The accent on the live arm is trim only; a whole arm in it is the ghost
+    this.live.setColors(this.css('--arm-shell'), this.css('--arm-joint'), this.css('--accent'))
     this.grid.clear()
-    const g = new THREE.GridHelper(1600, 32, new THREE.Color(cssVar('--line-2')), new THREE.Color(cssVar('--line')))
-    g.rotation.x = Math.PI / 2
-    this.grid.add(g)
+    this.grid.add(makeFloor(1400, 50, { ground: this.css('--view-ground'), background, grid: this.css('--view-grid') }))
     const axes: Array<[string, Vec3]> = [['--ax-x', [180, 0, 0]], ['--ax-y', [0, 180, 0]], ['--ax-z', [0, 0, 180]]]
     for (const [c, end] of axes) {
       this.grid.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), v3(end)]),
-        new THREE.LineBasicMaterial({ color: cssVar(c), depthTest: false })))
+        new THREE.LineBasicMaterial({ color: this.css(c), depthTest: false })))
     }
-    ;(this.trail.material as THREE.LineBasicMaterial).color.set(cssVar('--warn'))
+    ;(this.trail.material as THREE.LineBasicMaterial).color.set(this.css('--warn'))
     this.buildRingMarks()
     this.updateGhost()
   }
 
   setCamera(name: string) {
     const views: Record<string, [Vec3, Vec3]> = {
-      iso: [[1050, -950, 930], [150, 0, 400]],
+      iso: [[1230, -1110, 1040], [150, 0, 400]],
       front: [[1700, 0, 380], [0, 0, 380]],
       side: [[0, -1700, 380], [0, 0, 380]],
       top: [[160, -1, 1900], [160, 0, 0]]
@@ -460,7 +500,6 @@ export class ArmView {
     this.q('toolhud').hidden = this.mode !== 'tool'
     this.q('jointhud').hidden = this.mode !== 'joint'
     this.q('go').hidden = this.follow === 'live'
-    this.root.classList.toggle('tele-on', tele)
     this.q('help').textContent =
       this.mode === 'tool' ? 'Drag the arrows / planes to move · Ring or Shift+wheel: pitch · Enter: move' :
       this.mode === 'joint' ? 'Click a link to pick its joint, then drag the ring · Enter: move' :
@@ -572,6 +611,7 @@ export class ArmView {
       const a0 = this.ringAngle(e, grab)
       if (a0 == null) return
       grab.prev = a0
+      this.setRingHot(true)  // a touch grabs it without hovering first
       this.ringDrag = grab
       this.orbit.enabled = false
       this.renderer.domElement.setPointerCapture(e.pointerId)
@@ -620,9 +660,23 @@ export class ArmView {
     return Math.atan2(hit.dot(d.v), hit.dot(d.u)) * 180 / Math.PI
   }
 
+  /** The ring lights up under the pointer, as the gizmo's handles do, and stays lit while dragged */
+  private hoverRing(e: PointerEvent) {
+    const ray = new THREE.Raycaster()
+    ray.setFromCamera(this.ndc(e), this.camera)
+    this.setRingHot(this.ring.visible && !this.gizmo.dragging && ray.intersectObject(this.ringPick, false).length > 0)
+  }
+
+  private setRingHot(hot: boolean) {
+    if (hot === this.ringHot || this.ringDrag) return
+    this.ringHot = hot
+    this.renderer.domElement.style.cursor = hot ? 'grab' : ''
+    this.updateRing()
+  }
+
   private onPointerMove(e: PointerEvent) {
     const d = this.ringDrag
-    if (!d) return
+    if (!d) return this.hoverRing(e)
     const a = this.ringAngle(e, d)
     if (a == null) return
     d.acc += ((a - d.prev + 540) % 360) - 180
@@ -648,6 +702,7 @@ export class ArmView {
     this.ringDrag = null
     this.orbit.enabled = true
     this.renderer.domElement.releasePointerCapture(e.pointerId)
+    this.hoverRing(e)
     this.flushLive()
   }
 
@@ -681,12 +736,13 @@ export class ArmView {
   private updateRing() {
     const f = this.ringFrame()
     this.ring.visible = this.ringMarks.visible = !!f
+    if (!f) this.setRingHot(false)
     if (f) {
       const { axis, radius: r, ref: link } = f
       this.ring.position.copy(f.pivot)
       this.ring.quaternion.setFromUnitVectors(Z_AXIS, axis)
       this.ring.scale.setScalar(r)
-      ;(this.ring.material as THREE.MeshBasicMaterial).color.set(cssVar('--warn'))
+      ;(this.ring.material as THREE.MeshBasicMaterial).color.set(this.css(this.ringHot ? '--ring-hot' : '--warn'))
 
       // Arrows: local X = where they start, Z = axis
       link.addScaledVector(axis, -link.dot(axis))
@@ -706,7 +762,7 @@ export class ArmView {
     this.ringMarks.matrixAutoUpdate = false
     const R = 1.22, sweep = MARK_DEG * Math.PI / 180, head = 0.3
     const at = (a: number, r = R) => new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), 0)
-    for (const [sign, color, text] of [[1, cssVar('--plus'), '+'], [-1, cssVar('--minus'), '−']] as const) {
+    for (const [sign, color, text] of [[1, this.css('--plus'), '+'], [-1, this.css('--minus'), '−']] as const) {
       const mat = new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true })
       const stop = sweep - head / R
       const arc = new THREE.Mesh(new THREE.TorusGeometry(R, 0.05, 8, 24, stop), mat)
@@ -809,7 +865,6 @@ export class ArmView {
     if (e.key !== 'Enter' || this.mode === 'view' || this.follow !== 'preview' || !this.root.isConnected) return
     const t = e.target as HTMLElement
     if (t.closest('input, textarea, select, button, .modal-back')) return
-    if (!this.root.closest('.view')?.classList.contains('active')) return
     e.preventDefault()
     this.moveToGhost()
   }
@@ -875,7 +930,7 @@ let instance: ArmView | null = null
 /** The shared 3D view */
 export function armView(): ArmView {
   if (!instance) {
-    instance = new ArmView()
+    instance = new ArmView(document.getElementById('a3-host')!)
     if (import.meta.env.DEV) (window as any).__armView = instance  // for debugging
   }
   return instance

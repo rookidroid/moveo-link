@@ -1,17 +1,19 @@
 import './styles/app.css'
 import './styles/link.css'
-import { $, connect, disconnect, emit, startPolling, state, stopAll } from './lib/core'
+import './styles/hud.css'
+import { armView, type ViewHost } from './lib/arm3d'
+import { $, connect, disconnect, emit, pref, setPref, startPolling, state, stopAll } from './lib/core'
 import { promptText } from './lib/dialog'
 import { loadLibrary } from './lib/library'
 import { installWebBridge } from './lib/webBridge'
 import { initCalibrate, showCalibrate } from './views/calibrate'
-import { initControl, showControl } from './views/control'
+import { initControl } from './views/control'
 import { initPositions, showPositions } from './views/positions'
 import { initSequences, showSequences } from './views/sequences'
 import { initSettings } from './views/settings'
 
 const VIEWS: Record<string, () => void> = {
-  control: showControl,
+  control: () => {},
   positions: showPositions,
   sequences: showSequences,
   calibrate: showCalibrate,
@@ -31,8 +33,31 @@ function route() {
     if (on) a.setAttribute('aria-current', 'page')
     else a.removeAttribute('aria-current')
   })
+  armView().setHost(name as ViewHost)
   VIEWS[name]()
+  layoutStage()
   emit('view', name)
+}
+
+// The 3D view lies behind the active tab's panels: tell it how much of its
+// width each column covers. Below 900px the panels stack under the view instead.
+const stacked = matchMedia('(max-width: 899px)')
+function layoutStage() {
+  const col = (side: string) =>
+    stacked.matches ? null : document.querySelector<HTMLElement>(`.view.active .hud-${side}`)
+  const left = col('left'), right = col('right')
+  armView().setInsets(
+    left?.offsetWidth ? left.offsetLeft + left.offsetWidth : 0,
+    right?.offsetWidth ? $('stage').clientWidth - right.offsetLeft : 0)
+}
+
+// Panels fold away, and start as they were left
+function initPanels() {
+  document.querySelectorAll<HTMLDetailsElement>('details[data-panel]').forEach(d => {
+    const key = 'panel.' + d.dataset.panel
+    d.open = pref(key, true)
+    d.addEventListener('toggle', () => setPref(key, d.open))
+  })
 }
 
 async function main() {
@@ -50,6 +75,7 @@ async function main() {
     if (e.key === 'Escape' && !e.repeat) stopAll()
   }, { capture: true })
 
+  initPanels()
   await initSettings()
   initControl()
   initCalibrate()
@@ -59,6 +85,8 @@ async function main() {
 
   window.addEventListener('hashchange', route)
   route()
+  const sizes = new ResizeObserver(layoutStage)
+  document.querySelectorAll('#stage, .hud-col').forEach(el => sizes.observe(el))
   startPolling()
 }
 

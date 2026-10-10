@@ -162,7 +162,6 @@ export function initSequences() {
 }
 
 export function showSequences() {
-  armView().mount($('a3-sequences'), 'sequences')
   renderPath()
 }
 

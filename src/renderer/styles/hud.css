@@ -1,0 +1,122 @@
+/* The workspace: the 3D view fills the window under the app bar, and every tab
+   lays its panels over it. On top of app.css and link.css. */
+
+html,body{height:100%}
+body{display:flex;flex-direction:column;overflow:hidden}
+.appbar{flex:0 0 auto}
+
+/* ── Stage ─────────────────────────────────────────────── */
+/* The view is dark in both themes, and so is what lies over it: the colour
+   tokens every control reads are swapped here. The app bar, the dialogs and
+   the toast stay outside and follow the system theme. */
+.stage{
+  position:relative;flex:1 1 auto;min-height:0;overflow:hidden;color-scheme:dark;color:var(--ink);
+  background:var(--view-bg);
+  --view-bg:#0a1114;--view-ground:#111c21;--view-grid:#27474f;--ring-hot:#fff27a;
+  --arm-shell:#e3e8eb;--arm-joint:#2b353b;
+  --panel:rgba(9,16,19,.84);--panel-2:rgba(46,197,216,.07);--inset:rgba(2,7,9,.55);
+  --line:rgba(46,197,216,.15);--line-2:rgba(46,197,216,.32);
+  --ink:#dde5e8;--ink-2:#a3b1b8;--ink-3:#74858d;
+  --accent:#2ec5d8;--accent-ink:#03161a;--accent-soft:rgba(46,197,216,.13);
+  --ok:#3ccf74;--warn:#f2aa2b;--warn-soft:rgba(242,170,43,.1);--danger:#ef4444;
+  --ax-x:#ff5f5f;--ax-y:#4fd06a;--ax-z:#4e9eff;
+  --plus:#4e9eff;--minus:#ff7b3a;
+  --shadow:0 8px 28px rgba(0,0,0,.5);
+  --chamfer:9px;
+}
+.a3-host,.arm3d,.a3-stage{position:absolute;inset:0}
+/* Absolutely placed so the canvas never props its container open while resizing */
+.a3-stage canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;touch-action:none}
+
+/* ── Panels ────────────────────────────────────────────── */
+/* A plate over the view: translucent, its top-right and bottom-left corners cut */
+.stage .card{background:var(--panel);border-color:var(--line-2);backdrop-filter:blur(6px);
+  clip-path:polygon(0 0,calc(100% - var(--chamfer)) 0,100% var(--chamfer),100% 100%,var(--chamfer) 100%,0 calc(100% - var(--chamfer)))}
+.stage .card::before,.stage .card::after{content:none}
+.stage select option{color:var(--ink);background:#0d161a}
+
+/* A tab's panels, in a column down each side of the view; the middle stays clear */
+.view{position:absolute;inset:0;pointer-events:none}
+.hud-col{position:absolute;top:12px;display:flex;flex-direction:column;gap:10px;width:fit-content;
+  max-height:calc(100% - 24px);overflow:hidden auto;scrollbar-width:thin;scrollbar-gutter:stable;
+  scrollbar-color:var(--line-2) transparent;pointer-events:auto}
+.hud-left{left:12px;align-items:flex-start}
+.hud-right{right:2px;align-items:flex-end}
+.hud-col > .card{flex:0 0 auto}
+.hud-left > .card[open]{width:var(--col-l)}
+.hud-right > .card[open]{width:var(--col-r)}
+#view-control{--col-l:clamp(300px,25vw,360px);--col-r:clamp(380px,31vw,450px)}
+#view-positions{--col-l:clamp(400px,36vw,540px)}
+#view-sequences{--col-l:clamp(400px,36vw,540px);--col-r:clamp(300px,24vw,380px)}
+#view-calibrate{--col-l:clamp(300px,25vw,380px);--col-r:clamp(380px,33vw,500px)}
+#view-settings{--col-l:clamp(400px,40vw,600px)}
+
+/* A panel folds to its title */
+.stage summary.card-head{height:auto;min-height:36px;padding:0 10px;gap:8px;font-size:inherit;letter-spacing:normal;
+  text-transform:none;color:var(--ink);user-select:none}
+.stage summary.card-head::before{content:"\25BE";width:10px;font:12px/1 var(--sans);color:var(--ink-3)}
+.stage details.card:not([open]) > summary.card-head{padding-right:16px;border-bottom:0}
+.stage details.card:not([open]) > summary.card-head::before{content:"\25B8"}
+.stage details.card:not([open]) > summary.card-head > :is(.btn,.lbl,.spacer,div){display:none}
+.card-head .muted{overflow:hidden;font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+/* The expanders inside one open and close on their own */
+.stage details.card details{background:transparent}
+.stage details.card details:not([open]) > summary{border-bottom:0}
+.stage details.card details:not([open]) > summary::before{content:"+"}
+
+/* Room is tight in a column */
+.stage .tile{padding:7px 5px}
+.stage .tile .k{font-size:9.5px;letter-spacing:.08em}
+.stage .tile .v{font-size:13px}
+.stage .jrow{gap:6px 8px;padding:7px 8px}
+.stage .jang{min-width:70px;font-size:15px}
+.stage .jstp{min-width:60px}
+.stage .jogpad{gap:12px 16px;padding:12px 8px}
+.stage .pform{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stage .actions.pair{display:grid;grid-template-columns:1fr 1fr}
+.stage .actions.strip{padding:8px 12px;border-bottom:1px solid var(--line)}
+.stage .jp{padding:6px}
+.stage .jp .nm{max-width:100%;overflow:hidden;font-size:8.5px;text-overflow:ellipsis}
+
+/* ── 3D view controls ──────────────────────────────────── */
+/* Over the part of the view the panels leave clear: how the mouse acts on the
+   arm at the top; the target being dragged, the cameras and a hint at the bottom */
+.a3-chrome{position:absolute;top:0;bottom:0;left:var(--inset-l,0px);right:var(--inset-r,0px);display:flex;
+  flex-direction:column;align-items:center;justify-content:space-between;gap:12px;padding:12px;pointer-events:none}
+.a3-top,.a3-bottom{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;max-width:100%}
+.a3-chrome .card,.a3-cams,.a3-msg{pointer-events:auto}
+.a3-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 12px;padding:6px 10px}
+.a3-bar .grp,.a3-opts .grp{display:flex;align-items:center;gap:8px}
+body:not(.sim-mode) .a3-mode,.arm3d.no-tele .a3-mouse,body:not(.sim-mode) .arm3d.no-tele .a3-bar{display:none}
+.arm3d.locked .a3-mouse{opacity:.5;pointer-events:none}
+.a3-msg{padding:8px 12px;font-size:12.5px;background:var(--panel);border:1px solid var(--warn);border-left-width:3px;
+  backdrop-filter:blur(6px)}
+.a3-hud{display:flex;flex-direction:column;gap:8px;width:560px;max-width:100%;padding:8px 10px}
+.a3-hud input[type=number]{height:30px;font-size:13px}
+.a3-hud .btn{height:30px}
+.a3-hud .result{padding:5px 8px;font-size:11.5px}
+.a3-opts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.a3-opts .seg button{min-width:32px;height:28px;padding:0 8px}
+.a3-opts .speed{flex:1 1 150px}
+.a3-opts .speed input{flex:1;min-width:60px}
+.a3-tool{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px}
+.a3-joints{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 16px}
+.a3-j{display:grid;grid-template-columns:28px minmax(0,1fr) 64px;align-items:center;gap:8px;padding:0 4px;
+  border-left:2px solid transparent}
+.a3-j.sel{border-left-color:var(--warn);background:var(--warn-soft)}
+.a3-j .mono{text-align:right}
+.a3-cams{display:flex;gap:4px}
+.a3-cams .btn{background:var(--panel);backdrop-filter:blur(6px)}
+.a3-cams .btn.on{background:var(--accent-soft)}
+.a3-help{font:10.5px var(--mono);color:var(--ink-3);text-align:center}
+
+/* ── Narrow windows ────────────────────────────────────── */
+/* No room beside the view: the panels stack under it and the page scrolls */
+@media (max-width:899px){
+  .stage{overflow:hidden auto}
+  .a3-host{position:relative;inset:auto;height:58vh;min-height:320px}
+  .view{position:static;padding:12px}
+  .hud-col{position:static;width:auto;max-height:none;overflow:visible;align-items:stretch;scrollbar-gutter:auto}
+  .hud-col + .hud-col{margin-top:10px}
+  .hud-left > .card[open],.hud-right > .card[open]{width:auto}
+}

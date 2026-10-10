@@ -43,7 +43,7 @@ the robot (it never silently switches to the simulation).
 - **Positions** (left, under the arm's state) and **Sequences** (right) are panels of the Control tab, beside
   the arm they drive.
 - **Positions:**
-  - Teach the current arm position, or create tool poses by hand.
+  - Save the current arm position, or enter a tool pose or joint angles by hand.
   - Edit, convert between joints and tool pose, preview as a ghost, and go there at a chosen speed.
 - **Sequences:** chain *move* steps (position, speed %, dwell), *gripper* steps and *wait* steps.
   - Reorder steps by dragging, and set a repeat count.

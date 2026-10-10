@@ -18,7 +18,7 @@
       <circle cx="47" cy="16" r="2.25" class="bl-dot"/>
       <circle cx="24" cy="38" r="3.5" class="bl-joint"/><circle cx="34" cy="18" r="3.5" class="bl-joint"/><circle cx="48" cy="24" r="3" class="bl-joint"/>
     </svg>
-    <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">LINK &middot; 5-AXIS ARM CONTROLLER</span></div>
+    <div class="brand-text"><span class="brand-mark">MOVENS</span><span class="brand-sub">Link &middot; 5-axis arm controller</span></div>
   </div>
   <nav class="nav" id="nav">
     <a href="#control" data-view="control">Control</a>
@@ -42,62 +42,58 @@
 <main class="view" id="view-control">
   <div class="hud-col hud-left">
     <details class="card" data-panel="control.state" open>
-      <summary class="card-head"><span class="idx">01</span><h2>Arm state</h2></summary>
+      <summary class="card-head"><span class="idx">01</span><h2>Arm state</h2><span class="spacer"></span>
+        <button type="button" class="btn sm ghost" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Origin</button>
+      </summary>
       <div class="card-body">
         <div class="pose">
           <div class="tile"><span class="k"><b class="ax-x">X</b>mm</span><span class="v" id="p-x">—</span></div>
           <div class="tile"><span class="k"><b class="ax-y">Y</b>mm</span><span class="v" id="p-y">—</span></div>
           <div class="tile"><span class="k"><b class="ax-z">Z</b>mm</span><span class="v" id="p-z">—</span></div>
-          <div class="tile"><span class="k"><b class="ax-p">PITCH</b>&deg;</span><span class="v" id="p-pitch">—</span></div>
-          <div class="tile"><span class="k"><b class="ax-p">YAW</b>&deg;</span><span class="v" id="p-yaw">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-p">Pitch</b>&deg;</span><span class="v" id="p-pitch">—</span></div>
+          <div class="tile"><span class="k"><b class="ax-p">Yaw</b>&deg;</span><span class="v" id="p-yaw">—</span></div>
         </div>
         <div class="notice" id="pose-off" hidden>
           Tool position is unknown until J1&ndash;J5 are calibrated. <a href="#calibrate">Open calibration &rarr;</a>
         </div>
         <div class="jlist" id="jlist"></div>
-        <div class="actions">
-          <button class="btn grow" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Go to origin</button>
-        </div>
       </div>
     </details>
 
     <details class="card" data-panel="control.grip" open>
       <summary class="card-head">
-        <span class="idx">02</span><h2>Gripper &middot; J6 servo</h2><span class="spacer"></span>
+        <span class="idx">02</span><h2>Gripper</h2><span class="spacer"></span>
         <span class="big" id="servo-val">1500</span><span class="unit">&micro;s</span>
       </summary>
       <div class="card-body">
-        <div>
-          <input type="range" id="servo" min="700" max="2300" step="10" value="1500" aria-label="Gripper pulse width"/>
-          <div class="scale"><span>700</span><span>1100</span><span>1500</span><span>1900</span><span>2300</span></div>
-        </div>
+        <input type="range" id="servo" min="700" max="2300" step="10" value="1500" aria-label="Gripper pulse width"/>
         <div class="actions fill">
-          <button class="btn" data-servo="700">Min</button>
-          <button class="btn ghost" data-nudge="-50">&minus;50</button>
-          <button class="btn" data-servo="1500">Center</button>
-          <button class="btn ghost" data-nudge="50">+50</button>
-          <button class="btn" data-servo="2300">Max</button>
+          <button class="btn sm" data-servo="700" title="700 &micro;s">Min</button>
+          <button class="btn sm ghost" data-nudge="-50">&minus;50</button>
+          <button class="btn sm" data-servo="1500" title="1500 &micro;s">Center</button>
+          <button class="btn sm ghost" data-nudge="50">+50</button>
+          <button class="btn sm" data-servo="2300" title="2300 &micro;s">Max</button>
         </div>
       </div>
     </details>
+  </div>
 
+  <!-- The library: saved positions, and one sequence at a time (pick it, play it, edit its steps) -->
+  <div class="hud-col hud-right">
     <details class="card" data-panel="positions.list" open>
-      <summary class="card-head">
-        <span class="idx">03</span><h2>Positions</h2><span class="spacer"></span>
-        <span class="muted" id="pos-preview-name"></span>
+      <summary class="card-head"><span class="idx">03</span><h2>Positions</h2><span class="spacer"></span>
+        <button type="button" class="btn ghost sm" id="pos-import" title="Import positions and sequences from a file">Import</button>
+        <button type="button" class="btn ghost sm" id="pos-export" title="Export every position and sequence">Export</button>
       </summary>
       <div class="card-body">
-        <div class="sub"><span class="lbl">Go speed</span><div id="seg-gospeed"></div></div>
-        <div class="actions">
-          <button class="btn sm primary" id="pos-teach" title="Save where the arm is now">&#43; Teach</button>
-          <button class="btn sm" id="pos-new-pose" title="Enter a tool pose by hand">&#43; Tool pose</button>
-          <span class="grow"></span>
-          <button class="btn ghost sm" id="pos-import" title="Import positions and sequences from a file">Import</button>
-          <button class="btn ghost sm" id="pos-export" title="Export every position and sequence">Export</button>
+        <!-- The two ways to add one: where the arm is now, or typed in -->
+        <div class="actions pair">
+          <button class="btn sm primary" id="pos-teach" title="Add a position where the arm is now">&#43; Save current</button>
+          <button class="btn sm" id="pos-new-pose" title="Add a position by typing in a tool pose or joint angles">&#43; Enter manually</button>
         </div>
         <div class="plist" id="plist"></div>
-        <p class="hint">Click a position to preview it as a ghost. <b>Go</b> moves there; a gripper value is applied
-          after the arm arrives.</p>
+        <div class="sub pfoot"><span class="lbl">Go speed</span><div id="seg-gospeed"></div>
+          <span class="muted" id="pos-preview-name"></span></div>
       </div>
     </details>
 
@@ -136,10 +132,7 @@
         </div>
       </form>
     </details>
-  </div>
 
-  <!-- One sequence at a time: pick it, play it, edit its steps -->
-  <div class="hud-col hud-right">
     <details class="card" data-panel="sequences" id="seq-card" open>
       <summary class="card-head"><span class="idx">04</span><h2>Sequences</h2><span class="spacer"></span>
         <span class="badge" id="run-state">Idle</span></summary>
@@ -186,8 +179,6 @@
               <button type="button" class="btn sm" id="add-grip">&#43; Gripper</button>
               <button type="button" class="btn sm" id="add-wait">&#43; Wait</button>
             </div>
-            <p class="hint">Move: position, speed, dwell after arriving. Gripper: pulse, settle time. Drag a step by its
-              handle to reorder.</p>
           </fieldset>
         </div>
       </div>

@@ -70,7 +70,7 @@ export function initPositions() {
 
   // ── Editor ──────────────────────────────────────────────────────────────────
   segKind = seg($('pe-kind'), [['joints', 'Joints'], ['pose', 'Tool pose']], 'joints', k => switchKind(k))
-  segUnit = seg($('pe-unit'), [['deg', 'DEG'], ['steps', 'STEPS']], 'deg', u => switchUnit(u))
+  segUnit = seg($('pe-unit'), [['deg', 'Degrees'], ['steps', 'Steps']], 'deg', u => switchUnit(u))
   $('pe-jfields').innerHTML = [1, 2, 3, 4, 5].map(i => `
     <label class="field"><span>J${i}</span><span class="inp"><input type="number" step="any" id="pe-j${i}"/><i class="pe-u">°</i></span></label>`).join('')
   $('pe-form').addEventListener('input', () => { readForm(); claim(); renderDraftInfo() })
@@ -114,8 +114,8 @@ function render() {
   if (selected && !findPosition(selected)) selected = null
   const el = $('plist')
   if (!lib.positions.length) {
-    el.innerHTML = `<div class="empty">No positions yet. Move the arm and press <b>Teach</b>,
-      or click the gripper or a link in the 3D view, drag it, and <b>Save as position</b>.</div>`
+    el.innerHTML = `<div class="empty">No positions yet. Move the arm and press <b>Save current</b>,
+      or click the gripper or a link in the 3D view, drag it, and <b>Save position</b>.</div>`
     updatePreview()
     return
   }
@@ -136,11 +136,11 @@ function render() {
         <div class="pvals">${esc(describePosition(p))}</div>
         ${p.note ? `<div class="muted pnote">${esc(p.note)}</div>` : ''}
       </div>
+      <button type="button" class="btn sm primary" data-act="go" title="Move there; a saved gripper value is applied after the arm arrives">Go</button>
       <div class="pacts">
-        <button type="button" class="btn sm primary" data-act="go">Go</button>
         <button type="button" class="btn sm" data-act="edit">Edit</button>
-        <button type="button" class="btn sm ghost" data-act="reteach" title="Replace with the current arm position">Re-teach</button>
-        <button type="button" class="btn sm ghost" data-act="dup" title="Duplicate">Dup</button>
+        <button type="button" class="btn sm ghost" data-act="reteach" title="Replace with the current arm position">Set to current</button>
+        <button type="button" class="btn sm ghost" data-act="dup">Duplicate</button>
         <button type="button" class="btn sm ghost danger-ink" data-act="del" title="Delete">&times;</button>
       </div>
     </div>`
@@ -185,7 +185,7 @@ on('estop', () => { if (goRunner.busy) goRunner.stop() })
 
 async function reteach(p: Position) {
   if (state.status.j1 == null) return showToast('No position from the robot yet', 'err')
-  if (!await confirmDialog(`Replace "${p.name}" with the current arm position?`, 'Re-teach')) return
+  if (!await confirmDialog(`Replace "${p.name}" with the current arm position?`, 'Replace')) return
   const snap = capturePosition(state.status, p.id, p.name)
   if (p.kind === 'pose' && snap.pose) {
     p.pose = { ...snap.pose, yaw: p.pose?.yaw == null ? null : snap.pose.yaw }
@@ -267,7 +267,7 @@ function writeForm() {
   inp('pe-name').value = d.name
   inp('pe-note').value = d.note ?? ''
   segKind.set([['joints', 'Joints'], ['pose', 'Tool pose']], d.kind)
-  segUnit.set([['deg', 'DEG'], ['steps', 'STEPS']], d.joints!.unit)
+  segUnit.set([['deg', 'Degrees'], ['steps', 'Steps']], d.joints!.unit)
   d.joints!.v.forEach((v, k) => (inp('pe-j' + (k + 1)).value = String(v)))
   document.querySelectorAll('.pe-u').forEach(e => (e.textContent = d.joints!.unit === 'deg' ? '°' : 'st'))
   const q = d.pose!
@@ -332,7 +332,7 @@ function switchUnit(u: 'deg' | 'steps') {
   if (u === j.unit) return
   const missing = [1, 2, 3, 4, 5].filter(i => !isCal(cal(i)))
   if (missing.length) {
-    segUnit.set([['deg', 'DEG'], ['steps', 'STEPS']], j.unit)
+    segUnit.set([['deg', 'Degrees'], ['steps', 'Steps']], j.unit)
     return showToast(`J${missing[0]} is not calibrated: can't convert`, 'err')
   }
   j.v = j.v.map((v, k) => {

@@ -8,11 +8,39 @@ code{font:12px var(--mono);color:var(--ink)}
 .empty{padding:18px 12px;text-align:center;font-size:12.5px;color:var(--ink-3);
   border:1px dashed var(--line-2);list-style:none}
 
-input.text,select{width:100%;height:36px;padding:0 8px;font:14px var(--sans);color:var(--ink);
+input.text,select{width:100%;height:30px;padding:0 8px;font:13px var(--sans);color:var(--ink);
   background:var(--inset);border:1px solid var(--line-2);border-radius:var(--r);outline:none}
 input.text:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-select{font:13px var(--sans);cursor:pointer}
-.inp.sm input{height:30px;font-size:13px}
+select{cursor:pointer}
+.inp.sm input{height:26px;font-size:12.5px}
+
+/* ── Type ──────────────────────────────────────────────── */
+/* Sentence case: the firmware sheet sets its labels in spaced capitals, which is
+   a lot of them across three tabs. Only the brand mark and STOP keep theirs. */
+.nav a,.conn,.card-head h2,.lbl,.sub h3,.btn,.field > span:not(.inp),.badge,summary,.tbl th,.jname,.meter.off,
+.jp .nm,.readout2 .k,.step-b h3{text-transform:none;letter-spacing:normal}
+.nav a,.card-head h2,.step-b h3{font-size:13px;font-weight:600}
+.brand-sub{font-size:11px;font-weight:500;letter-spacing:.02em}
+.conn{font-size:12px}
+.lbl,.sub h3,summary,.field > span:not(.inp),.tbl th,.readout2 .k{font-size:12px;font-weight:600}
+.btn{font-size:12.5px;font-weight:600}
+.btn.sm{font-size:12px}
+.badge{font-size:11px;font-weight:600}
+.jname{font-size:12px;font-weight:500}
+.jp .nm{font-size:11px;font-weight:600}
+.meter.off{font-size:11.5px}
+
+/* ── Density ───────────────────────────────────────────── */
+/* The firmware page is sized for a thumb on a phone; here it is a pointer */
+.btn{height:30px;padding:0 10px}
+.btn.sm{height:26px;padding:0 8px}
+input[type=number]{height:30px;font-size:13px}
+input[type=range]{height:22px}
+input[type=range]::-webkit-slider-thumb{width:12px;height:20px;margin-top:-7px}
+input[type=range]::-moz-range-thumb{width:12px;height:20px}
+.seg button{height:26px;min-width:34px;padding:0 8px}
+.card-head{min-height:32px;padding:0 10px;gap:8px}
+.card-body{gap:8px;padding:10px}
 
 .btn.danger{color:#fff;background:var(--danger);border-color:var(--danger)}
 .btn.danger:hover{color:#fff;filter:brightness(1.1)}
@@ -21,38 +49,46 @@ select{font:13px var(--sans);cursor:pointer}
 
 .led.sim{background:var(--accent);box-shadow:0 0 6px var(--accent)}
 .badge.sim{color:var(--accent);border-color:var(--accent)}
-.conn .btn{margin-left:4px;letter-spacing:.08em}
+.conn .btn{margin-left:4px}
 .run-chip{padding:3px 8px;font:700 10.5px var(--mono);color:var(--accent-ink);background:var(--accent);
   border-radius:var(--r);text-transform:none;letter-spacing:.04em}
 
 /* ── Positions ─────────────────────────────────────────── */
-.plist{display:flex;flex-direction:column;border:1px solid var(--line);max-height:32vh;overflow:auto}
-.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 10px;
+.plist{display:flex;flex-direction:column;border:1px solid var(--line);max-height:min(32vh,260px);overflow:auto}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 8px;padding:6px 8px;
   border-top:1px solid var(--line);cursor:pointer}
 .prow:first-child{border-top:0}
 .prow:hover{background:var(--panel-2)}
 .prow.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
-.pmain{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pmain{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ptop{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
 .pname{padding:0;font:700 13px var(--sans);color:var(--ink);background:none;border:0;text-align:left}
 .pname:hover{color:var(--accent);text-decoration:underline dotted}
 .pvals{font:12px var(--mono);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-spacing:.12em}
 .pnote{font-size:11.5px}
-.pacts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+/* A row is its name, its values and Go; the rest shows once it is picked */
+.pacts{display:none;grid-column:1/-1;gap:4px;flex-wrap:wrap}
+.prow.sel .pacts{display:flex}
+.pacts .danger-ink{margin-left:auto}
+.pfoot{flex-wrap:nowrap;gap:8px}
+.pfoot .muted{flex:1;min-width:0;overflow:hidden;font-size:12px;text-align:right;white-space:nowrap;text-overflow:ellipsis}
 
 /* ── Sequences ─────────────────────────────────────────── */
 /* One panel: the sequence picked, its playback, its steps */
-#seq-pick{flex:1 1 140px;width:auto;min-width:0;height:28px}
-.seq-body,.seq-sec{display:flex;flex-direction:column;gap:10px;min-width:0}
+#seq-pick{flex:1 1 140px;width:auto;min-width:0;height:26px}
+.seq-body,.seq-sec{display:flex;flex-direction:column;gap:8px;min-width:0}
 .seq-body[hidden]{display:none}
-.seq-sec{padding-top:12px;border-top:1px solid var(--line)}
+.seq-sec{padding-top:8px;border-top:1px solid var(--line)}
 .seq-sec .sub{flex-wrap:nowrap;gap:8px}
 .seq-sec .sub .inp{width:64px}
 .actions.fill3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+/* Playback shows what can be pressed: the ways to start, or pause and stop */
+#run-pause:disabled,#run-stop:disabled{display:none}
+.actions:has(> #run-stop:enabled) > :is(#run-start,#run-from,#run-step,.grow){display:none}
 /* A step is one line: handle, number, kind, its values, copy and delete */
-.steplist{display:flex;flex-direction:column;list-style:none;border:1px solid var(--line)}
-.step-row{display:grid;grid-template-columns:12px 16px 34px minmax(0,1fr) auto;align-items:center;gap:8px;
-  padding:5px 6px 5px 8px;border-top:1px solid var(--line);position:relative}
+.steplist{display:flex;flex-direction:column;list-style:none;border:1px solid var(--line);max-height:36vh;overflow:auto}
+.step-row{display:grid;grid-template-columns:12px 16px 30px minmax(0,1fr) auto;align-items:center;gap:6px;
+  padding:4px 6px;border-top:1px solid var(--line);position:relative}
 .step-row:first-child{border-top:0}
 .step-row.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .step-row.running{background:var(--warn-soft);box-shadow:inset 3px 0 0 var(--warn)}
@@ -61,13 +97,13 @@ select{font:13px var(--sans);cursor:pointer}
 .step-row.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 .grip{cursor:grab;color:var(--ink-3);font-size:12px;letter-spacing:-3px;user-select:none}
 .sn{font:700 12px var(--mono);color:var(--ink-3);text-align:right}
-.stype{font:700 9.5px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.stype{font:600 11.5px var(--sans);color:var(--ink-3)}
 .t-move .stype{color:var(--accent)}
 .t-gripper .stype{color:var(--ok)}
-.sfields{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
-.sfields select{flex:1 1 80px;width:auto;min-width:0;height:30px}
-.sfields .inp{flex:none;width:72px}
-.sfields .inp.pct{width:56px}
+.sfields{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
+.sfields select{flex:1 1 64px;width:auto;min-width:0;height:26px}
+.sfields .inp{flex:none;width:64px}
+.sfields .inp.pct{width:50px}
 .sfields .inp input{padding-left:6px;padding-right:26px}
 .sacts{display:flex;gap:2px}
 .sacts .btn{min-width:26px;padding:0 6px}

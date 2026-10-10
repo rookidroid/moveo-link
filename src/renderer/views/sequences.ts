@@ -78,7 +78,7 @@ export function initSequences() {
 
   $('add-move').addEventListener('click', () => {
     const p = lib.positions[lib.positions.length - 1]
-    if (!p) return showToast('Teach a position first', 'err')
+    if (!p) return showToast('Save a position first', 'err')
     addStep({ id: uid(), type: 'move', positionId: p.id, speed: 50, dwellMs: 0 })
   })
   $('add-grip').addEventListener('click', () =>
@@ -255,7 +255,7 @@ function renderSteps() {
   const opts = (sel: string) => lib.positions.map(p =>
     `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)}</option>`).join('') +
     (findPosition(sel) ? '' : '<option value="" selected>(missing position)</option>')
-  // A value with its unit; what it is shows as a tooltip, the hint under the list gives the order
+  // A value with its unit; what it is shows as a tooltip
   const num = (f: string, v: number, unit: string, what: string, attrs = '') =>
     `<span class="inp sm${unit === '%' ? ' pct' : ''}" title="${what}"><input type="number" data-f="${f}" value="${v}" aria-label="${what}" ${attrs}/><i>${unit}</i></span>`
   const kind = { move: 'Move', gripper: 'Grip', wait: 'Wait' }

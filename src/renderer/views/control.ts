@@ -14,8 +14,7 @@ export function initControl() {
   $('jlist').innerHTML = JOINT_NAMES.map((n, k) => { const i = k + 1; return `
     <div class="jrow">
       <span class="led" id="led-${i}"></span><span class="jtag">J${i}</span><span class="jname">${n}</span>
-      <span class="jang" id="ang-${i}">—</span><span class="jstp" id="stp-${i}">—</span>
-      <div class="meter" id="mtr-${i}"></div>
+      <div class="meter" id="mtr-${i}"></div><span class="jang" id="ang-${i}">—</span>
     </div>` }).join('')
 
   // ── Gripper ─────────────────────────────────────────────────────────────────
@@ -42,7 +41,7 @@ export function initControl() {
   // ── Origin ──────────────────────────────────────────────────────────────────
   confirmTap($('btnOrigin'), async () => {
     if (await api('/home', {})) showToast('Moving all joints to origin')
-  })
+  }, 'Confirm?')
 
   // ── Calibration and status rendering ────────────────────────────────────────
   function renderMeters() {
@@ -50,16 +49,16 @@ export function initControl() {
       const c = cal(i), el = $('mtr-' + i)
       if (!isCal(c)) {
         el.className = 'meter off'
-        el.innerHTML = 'Not calibrated &middot; <a href="#calibrate">calibrate</a>'
+        el.title = ''
+        el.innerHTML = '<a href="#calibrate">Not calibrated</a>'
         continue
       }
       const z = pct(c, 0)
       el.className = 'meter' + (c.limits ? ' lim' : '')
-      el.title = c.limits ? 'Soft limits enforced' : 'Soft limits off'
+      el.title = `${fmt(c.min, 0)}° to ${fmt(c.max, 0)}° · soft limits ${c.limits ? 'enforced' : 'off'}`
       el.innerHTML = `<div class="trk"></div>` +
         (z >= 0 && z <= 100 ? `<i class="z" style="left:${z}%"></i>` : '') +
-        `<i class="m" id="mk-${i}" hidden></i>` +
-        `<span class="lo">${fmt(c.min, 0)}&deg;</span><span class="hi">${fmt(c.max, 0)}&deg;</span>`
+        `<i class="m" id="mk-${i}" hidden></i>`
     }
   }
 
@@ -71,8 +70,11 @@ export function initControl() {
     for (let i = 1; i <= N; i++) {
       const a = d['a' + i] as number | null, c = cal(i)
       $('led-' + i).className = 'led' + (d['m' + i] ? ' busy' : '')
-      $('ang-' + i).innerHTML = a == null ? '<span class="badge warn">No cal</span>' : fmt(a) + '<span class="unit">°</span>'
-      $('stp-' + i).textContent = (d['j' + i] ?? '—') + ' st'
+      // One line a joint: the angle, with the step count behind it; steps alone until calibrated
+      const steps = (d['j' + i] ?? '—') + ' st'
+      const ang = $('ang-' + i)
+      ang.innerHTML = a == null ? `<span class="unit">${steps}</span>` : fmt(a) + '<span class="unit">°</span>'
+      ang.title = a == null ? 'Not calibrated' : steps
       const mk = document.getElementById('mk-' + i)
       if (mk && a != null && c && c.max > c.min) {
         const p = pct(c, a)

@@ -940,7 +940,7 @@ export class ArmView {
     let text = '', err = false
     const edge = this.mode === 'tool' && this.clamped
     if (this.mode === 'tool') {
-      if (this.toolSol?.status === 'ok') text = (edge ? 'NEAREST REACHABLE ▸ ' : 'REACHABLE ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join(' ')
+      if (this.toolSol?.status === 'ok') text = (edge ? 'Nearest reachable ▸ ' : 'Reachable ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join(' ')
       else { err = true; text = this.toolSol?.status === 'limits' ? '✕ pose outside joint limits' : '✕ pose unreachable' }
     } else if (this.mode === 'joint') {
       text = this.jointSel ? `J${this.jointSel} ${JOINT_NAMES[this.jointSel - 1]} picked: drag its ring, or set its angle here`

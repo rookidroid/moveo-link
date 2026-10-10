@@ -37,7 +37,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
 
 /* A tab's panels, in a column down each side of the view; the middle stays clear */
 .view{position:absolute;inset:0;pointer-events:none}
-.hud-col{position:absolute;top:12px;display:flex;flex-direction:column;gap:10px;width:fit-content;
+.hud-col{position:absolute;top:12px;display:flex;flex-direction:column;gap:8px;width:fit-content;
   max-height:calc(100% - 24px);overflow:hidden auto;scrollbar-width:thin;scrollbar-gutter:stable;
   scrollbar-color:var(--line-2) transparent;pointer-events:auto}
 .hud-left{left:12px;align-items:flex-start}
@@ -45,36 +45,41 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .hud-col > .card{flex:0 0 auto}
 .hud-left > .card[open]{width:var(--col-l)}
 .hud-right > .card[open]{width:var(--col-r)}
-#view-control{--col-l:clamp(320px,26vw,380px);--col-r:clamp(360px,32vw,460px)}
+/* Control: the arm on the left, the library on the right, the view centred between */
+#view-control{--col-l:clamp(320px,25vw,384px);--col-r:var(--col-l)}
 #view-calibrate{--col-l:clamp(300px,25vw,380px);--col-r:clamp(380px,33vw,500px)}
 #view-settings{--col-l:clamp(400px,40vw,600px)}
 
 /* A panel folds to its title */
-.stage summary.card-head{height:auto;min-height:36px;padding:0 10px;gap:8px;font-size:inherit;letter-spacing:normal;
-  text-transform:none;color:var(--ink);user-select:none}
+.stage summary.card-head{height:auto;font-size:inherit;color:var(--ink);user-select:none}
 .stage summary.card-head::before{content:"\25BE";width:10px;font:12px/1 var(--sans);color:var(--ink-3)}
 .stage details.card:not([open]) > summary.card-head{padding-right:16px;border-bottom:0}
 .stage details.card:not([open]) > summary.card-head::before{content:"\25B8"}
 .stage details.card:not([open]) > summary.card-head > :is(.btn,.lbl,.spacer,div){display:none}
-.card-head .muted{overflow:hidden;font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+/* Its reading stays in the title, at the title's size */
+.stage .card-head .big{font-size:15px}
 /* The expanders inside one open and close on their own */
 .stage details.card details{background:transparent}
 .stage details.card details:not([open]) > summary{border-bottom:0}
 .stage details.card details:not([open]) > summary::before{content:"+"}
 
 /* Room is tight in a column */
-.stage .tile{padding:7px 5px}
-.stage .tile .k{font-size:9.5px;letter-spacing:.08em}
+.stage .tile{gap:1px;padding:5px 6px}
+.stage .tile .k{font-size:11px;font-weight:600;letter-spacing:normal}
 .stage .tile .v{font-size:13px}
-.stage .jrow{gap:6px 8px;padding:7px 8px}
-.stage .jang{min-width:70px;font-size:15px}
-.stage .jstp{min-width:60px}
+/* A joint is one line: its name, where it is in its range, its angle */
+.stage .jrow{grid-template-columns:auto auto 74px minmax(0,1fr) 62px;gap:8px;padding:5px 8px}
+.stage .jang{min-width:0;font-size:13px;white-space:nowrap}
+.stage .jang .unit{margin-left:2px}
+.stage .meter{grid-column:auto;height:14px}
+.stage .meter .trk{top:3px}
+.stage .meter .z{top:0}
+.stage .meter .m{top:-1px}
+.stage .meter.off{height:auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .stage .pform{grid-template-columns:repeat(3,minmax(0,1fr))}
-.stage .prow{grid-template-columns:minmax(0,1fr);gap:6px}
-.stage .pacts{justify-content:flex-start}
 .stage .actions.pair{display:grid;grid-template-columns:1fr 1fr}
-.stage .jp{padding:6px}
-.stage .jp .nm{max-width:100%;overflow:hidden;font-size:8.5px;text-overflow:ellipsis}
+.stage .jp{padding:6px 4px}
+.stage .jp .nm{max-width:100%;overflow:hidden;font-size:10.5px;font-weight:500;text-overflow:ellipsis}
 
 /* ── 3D view controls ──────────────────────────────────── */
 /* Over the part of the view the panels leave clear: the target being dragged,
@@ -94,7 +99,7 @@ body:not(.sim-mode) .a3-mode{display:none}
 .a3-hud input[type=number]{height:30px;font-size:13px}
 .a3-hud .btn{height:30px}
 .a3-opts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.a3-opts .seg button{min-width:32px;height:28px;padding:0 8px}
+.a3-opts .seg button{min-width:32px}
 .a3-opts .speed{flex:1 1 120px}
 .a3-opts .speed input{flex:1;min-width:60px}
 .a3-tool,.a3-joints{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px 8px}
@@ -122,6 +127,6 @@ body:not(.sim-mode) .a3-mode{display:none}
   .a3-host{position:relative;inset:auto;height:58vh;min-height:320px}
   .view{position:static;padding:12px}
   .hud-col{position:static;width:auto;max-height:none;overflow:visible;align-items:stretch;scrollbar-gutter:auto}
-  .hud-col + .hud-col{margin-top:10px}
+  .hud-col + .hud-col{margin-top:8px}
   .hud-left > .card[open],.hud-right > .card[open]{width:auto}
 }

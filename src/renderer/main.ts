@@ -13,9 +13,7 @@ import { initSequences, showSequences } from './views/sequences'
 import { initSettings } from './views/settings'
 
 const VIEWS: Record<string, () => void> = {
-  control: () => {},
-  positions: showPositions,
-  sequences: showSequences,
+  control: () => { showPositions(); showSequences() },
   calibrate: showCalibrate,
   settings: () => {}
 }

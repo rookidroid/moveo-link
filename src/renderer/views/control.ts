@@ -1,12 +1,10 @@
 // Control view: the arm's state and the gripper, ported from the firmware's
-// control page (web_index_html.h), plus "Save position". The arm itself is
-// moved in the 3D view (lib/arm3d.ts).
+// control page (web_index_html.h). The arm itself is moved in the 3D view
+// (lib/arm3d.ts); the library panels on the right are positions.ts and
+// sequences.ts.
 
-import { uid, type Status } from '@shared/types'
+import type { Status } from '@shared/types'
 import { $, api, cal, confirmTap, fmt, isCal, JOINT_NAMES, N, on, showToast, state } from '../lib/core'
-import { promptText } from '../lib/dialog'
-import { changed, lib, nextName } from '../lib/library'
-import { capturePosition } from '../lib/motion'
 
 // Position of angle a on the joint's min..max scale, in %
 const pct = (c: { min: number; max: number }, a: number) => (a - c.min) / (c.max - c.min) * 100
@@ -41,12 +39,10 @@ export function initControl() {
   document.querySelectorAll<HTMLButtonElement>('[data-nudge]').forEach(b =>
     b.addEventListener('click', () => sendServo(+sv.value + +b.dataset.nudge!)))
 
-  // ── Origin, teach ───────────────────────────────────────────────────────────
+  // ── Origin ──────────────────────────────────────────────────────────────────
   confirmTap($('btnOrigin'), async () => {
     if (await api('/home', {})) showToast('Moving all joints to origin')
   })
-
-  $('btnTeach').addEventListener('click', () => teachCurrent())
 
   // ── Calibration and status rendering ────────────────────────────────────────
   function renderMeters() {
@@ -94,15 +90,4 @@ export function initControl() {
     if (state.status.j1 != null) onStatus(state.status as Status)
   })
   renderMeters()
-}
-
-/** Save the current arm position to the library */
-export async function teachCurrent(): Promise<void> {
-  if (state.status.j1 == null) return showToast('No position from the robot yet', 'err')
-  const name = await promptText('Save current position', nextName('P', lib.positions.map(p => p.name)))
-  if (!name) return
-  const p = capturePosition(state.status, uid(), name)
-  lib.positions.push(p)
-  changed()
-  showToast(`Saved ${name}` + (p.joints?.unit === 'steps' ? ' (in steps: arm not calibrated)' : ''))
 }

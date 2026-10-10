@@ -22,8 +22,6 @@
   </div>
   <nav class="nav" id="nav">
     <a href="#control" data-view="control">Control</a>
-    <a href="#positions" data-view="positions">Positions</a>
-    <a href="#sequences" data-view="sequences">Sequences</a>
     <a href="#calibrate" data-view="calibrate">Calibrate</a>
     <a href="#settings" data-view="settings">Settings</a>
   </nav>
@@ -57,9 +55,8 @@
           Tool position is unknown until J1&ndash;J5 are calibrated. <a href="#calibrate">Open calibration &rarr;</a>
         </div>
         <div class="jlist" id="jlist"></div>
-        <div class="actions pair">
-          <button class="btn" id="btnTeach" title="Save the current arm position to the library">&#43; Save position</button>
-          <button class="btn" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Go to origin</button>
+        <div class="actions">
+          <button class="btn grow" id="btnOrigin" title="Move every joint to its origin (0 steps)">&#8853; Go to origin</button>
         </div>
       </div>
     </details>
@@ -83,33 +80,29 @@
         </div>
       </div>
     </details>
-  </div>
-</main>
 
-<!-- ═════════════════════════ POSITIONS ═════════════════════════ -->
-<main class="view" id="view-positions" hidden>
-  <div class="hud-col hud-left">
     <details class="card" data-panel="positions.list" open>
       <summary class="card-head">
-        <span class="idx">01</span><h2>Positions</h2><span class="muted" id="pos-preview-name"></span><span class="spacer"></span>
-        <span class="lbl">Go speed</span><div id="seg-gospeed"></div>
+        <span class="idx">03</span><h2>Positions</h2><span class="spacer"></span>
+        <span class="muted" id="pos-preview-name"></span>
       </summary>
       <div class="card-body">
+        <div class="sub"><span class="lbl">Go speed</span><div id="seg-gospeed"></div></div>
         <div class="actions">
-          <button class="btn primary" id="pos-teach" title="Save where the arm is now">&#43; Teach current</button>
-          <button class="btn" id="pos-new-pose">&#43; New tool pose</button>
+          <button class="btn sm primary" id="pos-teach" title="Save where the arm is now">&#43; Teach</button>
+          <button class="btn sm" id="pos-new-pose" title="Enter a tool pose by hand">&#43; Tool pose</button>
           <span class="grow"></span>
-          <button class="btn ghost sm" id="pos-import">Import</button>
-          <button class="btn ghost sm" id="pos-export">Export all</button>
+          <button class="btn ghost sm" id="pos-import" title="Import positions and sequences from a file">Import</button>
+          <button class="btn ghost sm" id="pos-export" title="Export every position and sequence">Export</button>
         </div>
         <div class="plist" id="plist"></div>
-        <p class="hint">Click a position to preview it as a ghost in the 3D view. <b>Go</b> moves all joints together
-          (joint positions) or through IK (tool poses). A gripper value is applied after the arm arrives.</p>
+        <p class="hint">Click a position to preview it as a ghost. <b>Go</b> moves there; a gripper value is applied
+          after the arm arrives.</p>
       </div>
     </details>
 
     <details class="card" id="pos-editor" open hidden>
-      <summary class="card-head"><span class="idx">02</span><h2 id="pe-title">Edit position</h2></summary>
+      <summary class="card-head"><span class="idx">03</span><h2 id="pe-title">Edit position</h2></summary>
       <form class="card-body" id="pe-form">
         <div class="row">
           <label class="field grow2"><span>Name</span><input type="text" class="text" id="pe-name" maxlength="80"/></label>
@@ -144,59 +137,59 @@
       </form>
     </details>
   </div>
-</main>
 
-<!-- ═════════════════════════ SEQUENCES ═════════════════════════ -->
-<main class="view" id="view-sequences" hidden>
-  <div class="hud-col hud-left">
-    <details class="card" data-panel="sequences.list" open>
-      <summary class="card-head"><span class="idx">01</span><h2>Sequences</h2><span class="spacer"></span>
-        <button class="btn sm primary" id="seq-new">&#43; New</button>
-        <button class="btn sm ghost" id="seq-import">Import</button>
-      </summary>
-      <div class="card-body"><div class="slist" id="slist"></div></div>
-    </details>
-
-    <details class="card" data-panel="sequences.steps" id="seq-editor" open hidden>
-      <summary class="card-head"><span class="idx">02</span><h2>Steps</h2></summary>
-      <div class="actions strip">
-        <button class="btn sm ghost" id="seq-rename">Rename</button>
-        <button class="btn sm ghost" id="seq-dup">Duplicate</button>
-        <button class="btn sm ghost" id="seq-export">Export</button>
-        <span class="grow"></span>
-        <button class="btn sm ghost danger-ink" id="seq-del">Delete</button>
-      </div>
-      <fieldset class="card-body fs" id="seq-fs">
-        <div class="row">
-          <label class="field"><span>Repeat</span><span class="inp"><input type="number" min="0" step="1" id="seq-repeat"/><i>&times;</i></span></label>
-          <p class="hint grow2">0 = loop until stopped. Drag rows by the handle to reorder.</p>
-        </div>
-        <ol class="steplist" id="steplist"></ol>
-        <div class="actions">
-          <button type="button" class="btn" id="add-move">&#43; Move</button>
-          <button type="button" class="btn" id="add-grip">&#43; Gripper</button>
-          <button type="button" class="btn" id="add-wait">&#43; Wait</button>
-        </div>
-      </fieldset>
-    </details>
-  </div>
-
+  <!-- One sequence at a time: pick it, play it, edit its steps -->
   <div class="hud-col hud-right">
-    <details class="card" data-panel="sequences.playback" id="seq-player" open>
-      <summary class="card-head"><span class="idx">03</span><h2>Playback</h2><span class="spacer"></span>
+    <details class="card" data-panel="sequences" id="seq-card" open>
+      <summary class="card-head"><span class="idx">04</span><h2>Sequences</h2><span class="spacer"></span>
         <span class="badge" id="run-state">Idle</span></summary>
       <div class="card-body">
         <div class="actions">
-          <button class="btn primary" id="run-start">&#9656; Run</button>
-          <button class="btn" id="run-from" title="Run from the selected step">&#9656; From selected</button>
-          <button class="btn" id="run-step" title="Run the selected step only">&#8677; Step</button>
-          <button class="btn" id="run-pause">&#10073;&#10073; Pause</button>
-          <button class="btn danger" id="run-stop">&#9632; Stop</button>
-          <span class="grow"></span>
-          <button class="btn ghost" id="run-validate">Validate</button>
+          <select id="seq-pick" aria-label="Sequence"></select>
+          <button class="btn sm primary" id="seq-new">&#43; New</button>
+          <button class="btn sm ghost" id="seq-import">Import</button>
         </div>
-        <div class="progress"><div class="bar" id="run-bar"></div></div>
-        <div class="result" id="run-msg"></div>
+        <div class="empty" id="seq-none">No sequences yet. Press <b>New</b>, then add move, gripper and wait steps.</div>
+
+        <div class="seq-body" id="seq-editor" hidden>
+          <div class="actions">
+            <button class="btn sm ghost" id="seq-rename">Rename</button>
+            <button class="btn sm ghost" id="seq-dup">Duplicate</button>
+            <button class="btn sm ghost" id="seq-export">Export</button>
+            <span class="grow"></span>
+            <button class="btn sm ghost danger-ink" id="seq-del">Delete</button>
+          </div>
+
+          <div class="seq-sec">
+            <div class="actions">
+              <button class="btn sm primary" id="run-start">&#9656; Run</button>
+              <button class="btn sm" id="run-from" title="Run from the selected step">&#9656; From step</button>
+              <button class="btn sm" id="run-step" title="Run the selected step only">&#8677; Step</button>
+              <span class="grow"></span>
+              <button class="btn sm" id="run-pause">&#10073;&#10073; Pause</button>
+              <button class="btn sm danger" id="run-stop">&#9632; Stop</button>
+            </div>
+            <div class="progress"><div class="bar" id="run-bar"></div></div>
+            <div class="result" id="run-msg"></div>
+          </div>
+
+          <fieldset class="fs seq-sec" id="seq-fs">
+            <div class="sub">
+              <span class="lbl">Steps</span><span class="spacer"></span>
+              <label class="sub" title="How many times the sequence runs; 0 loops until stopped"><span class="lbl">Repeat</span>
+                <span class="inp sm"><input type="number" min="0" step="1" id="seq-repeat"/><i>&times;</i></span></label>
+              <button type="button" class="btn sm ghost" id="run-validate">Validate</button>
+            </div>
+            <ol class="steplist" id="steplist"></ol>
+            <div class="actions fill3">
+              <button type="button" class="btn sm" id="add-move">&#43; Move</button>
+              <button type="button" class="btn sm" id="add-grip">&#43; Gripper</button>
+              <button type="button" class="btn sm" id="add-wait">&#43; Wait</button>
+            </div>
+            <p class="hint">Move: position, speed, dwell after arriving. Gripper: pulse, settle time. Drag a step by its
+              handle to reorder.</p>
+          </fieldset>
+        </div>
       </div>
     </details>
   </div>

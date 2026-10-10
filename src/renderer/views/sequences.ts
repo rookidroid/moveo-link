@@ -1,9 +1,9 @@
-// Sequences view: chain positions, gripper actions and waits into a motion,
-// preview its tool path in 3D and play it back.
+// Sequences panel of the Control view: chain positions, gripper actions and
+// waits into a motion, preview its tool path in 3D and play it back.
 
 import { SERVO_MAX, SERVO_MIN, uid, type Sequence, type Step } from '@shared/types'
 import { armView } from '../lib/arm3d'
-import { $, esc, on, publishStatus, request, showToast, state, statusDegrees } from '../lib/core'
+import { $, emit, esc, on, publishStatus, request, showToast, state, statusDegrees } from '../lib/core'
 import { confirmDialog, promptText } from '../lib/dialog'
 import { changed, exportData, findPosition, findSequence, importData, lib, nextName } from '../lib/library'
 import { positionDegrees, positionIssues, positionToolPoint } from '../lib/motion'
@@ -11,7 +11,8 @@ import { Runner, type RunInfo } from '../lib/runner'
 
 let currentId: string | null = null
 let selStep = 0
-let quiet = false          // library change made by the step editor itself: keep focus, no re-render
+let ghost = false          // the ghost shows the selected step, not a pick in the Positions panel
+let quiet = false         // library change made by the step editor itself: keep focus, no re-render
 let dragFrom = -1
 
 export const seqRunner = new Runner({
@@ -39,10 +40,8 @@ export function initSequences() {
     if (typeof r === 'string') return showToast(r, 'err')
     showToast(`Imported ${r.sequences} sequence(s), ${r.positions} position(s)`)
   })
-  $('slist').addEventListener('click', e => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.srow-s')
-    if (!row || seqRunner.busy) return
-    currentId = row.dataset.id!
+  $('seq-pick').addEventListener('change', () => {
+    currentId = $<HTMLSelectElement>('seq-pick').value
     selStep = 0
     render()
   })
@@ -79,7 +78,7 @@ export function initSequences() {
 
   $('add-move').addEventListener('click', () => {
     const p = lib.positions[lib.positions.length - 1]
-    if (!p) return showToast('Teach a position first (Positions tab)', 'err')
+    if (!p) return showToast('Teach a position first', 'err')
     addStep({ id: uid(), type: 'move', positionId: p.id, speed: 50, dwellMs: 0 })
   })
   $('add-grip').addEventListener('click', () =>
@@ -95,12 +94,17 @@ export function initSequences() {
     if (!row) return
     const i = +row.dataset.i!
     const act = t.closest<HTMLElement>('[data-act]')?.dataset.act
+    claim()
     if (act) stepAction(i, act)
     else if (!t.closest('input,select')) { selStep = i; renderSteps(); renderPath() }
   })
   list.addEventListener('focusin', e => {
     const row = (e.target as HTMLElement).closest<HTMLElement>('.step-row')
-    if (row && +row.dataset.i! !== selStep) { selStep = +row.dataset.i!; markSelected(); renderPath() }
+    if (!row || (+row.dataset.i! === selStep && ghost)) return
+    selStep = +row.dataset.i!
+    claim()
+    markSelected()
+    renderPath()
   })
   list.addEventListener('dragstart', e => {
     const row = (e.target as HTMLElement).closest<HTMLElement>('.step-row')
@@ -158,7 +162,16 @@ export function initSequences() {
 
   on('library', () => { if (!quiet) render() })
   on('calib', () => renderPath())
+  on('preview', who => { if (who === 'position') ghost = false })
+  $('seq-card').addEventListener('toggle', () => renderPath())  // folded, its path leaves the 3D view
   render()
+}
+
+/** Take the ghost for the selected step; the Positions panel lets go of it */
+function claim() {
+  if (ghost) return
+  ghost = true
+  emit('preview', 'step')
 }
 
 export function showSequences() {
@@ -178,15 +191,14 @@ function addStep(st: Step) {
   const at = s.steps.length ? Math.min(selStep + 1, s.steps.length) : 0
   s.steps.splice(at, 0, st)
   selStep = at
+  claim()
   touch(s)
 }
 
 function stepAction(i: number, act: string) {
   const s = current(); if (!s) return
   const st = s.steps[i]
-  if (act === 'up' && i > 0) { [s.steps[i - 1], s.steps[i]] = [st, s.steps[i - 1]]; selStep = i - 1 }
-  else if (act === 'down' && i < s.steps.length - 1) { [s.steps[i + 1], s.steps[i]] = [st, s.steps[i + 1]]; selStep = i + 1 }
-  else if (act === 'dup') { s.steps.splice(i + 1, 0, { ...structuredClone(st), id: uid() }); selStep = i + 1 }
+  if (act === 'dup') { s.steps.splice(i + 1, 0, { ...structuredClone(st), id: uid() }); selStep = i + 1 }
   else if (act === 'del') { s.steps.splice(i, 1); selStep = Math.max(0, Math.min(selStep, s.steps.length - 1)) }
   else return
   touch(s)
@@ -219,9 +231,7 @@ function render() {
   renderList()
   const s = current()
   $('seq-editor').hidden = !s
-  $('seq-player').hidden = !s
   if (s) {
-    $('seq-editor').querySelector('h2')!.textContent = `Steps · ${s.name}`
     const rep = $<HTMLInputElement>('seq-repeat')
     if (document.activeElement !== rep) rep.value = String(s.repeat)
     selStep = Math.max(0, Math.min(selStep, s.steps.length - 1))
@@ -232,16 +242,12 @@ function render() {
 }
 
 function renderList() {
-  const el = $('slist')
-  if (!lib.sequences.length) {
-    el.innerHTML = '<div class="empty">No sequences yet. Press <b>New</b>, then add move, gripper and wait steps.</div>'
-    return
-  }
+  const el = $<HTMLSelectElement>('seq-pick')
+  const any = lib.sequences.length > 0
+  el.hidden = !any
+  $('seq-none').hidden = any
   el.innerHTML = lib.sequences.map(s => `
-    <button type="button" class="srow-s${s.id === currentId ? ' sel' : ''}" data-id="${s.id}">
-      <span class="nm">${esc(s.name)}</span>
-      <span class="muted">${s.steps.length} step${s.steps.length === 1 ? '' : 's'} · ${s.repeat === 0 ? 'loop' : '×' + s.repeat}</span>
-    </button>`).join('')
+    <option value="${s.id}"${s.id === currentId ? ' selected' : ''}>${esc(s.name)} · ${s.steps.length} step${s.steps.length === 1 ? '' : 's'}</option>`).join('')
 }
 
 function renderSteps() {
@@ -249,26 +255,26 @@ function renderSteps() {
   const opts = (sel: string) => lib.positions.map(p =>
     `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)}</option>`).join('') +
     (findPosition(sel) ? '' : '<option value="" selected>(missing position)</option>')
-  const num = (f: string, v: number, unit: string, attrs = '') =>
-    `<span class="inp sm"><input type="number" data-f="${f}" value="${v}" ${attrs}/><i>${unit}</i></span>`
+  // A value with its unit; what it is shows as a tooltip, the hint under the list gives the order
+  const num = (f: string, v: number, unit: string, what: string, attrs = '') =>
+    `<span class="inp sm${unit === '%' ? ' pct' : ''}" title="${what}"><input type="number" data-f="${f}" value="${v}" aria-label="${what}" ${attrs}/><i>${unit}</i></span>`
+  const kind = { move: 'Move', gripper: 'Grip', wait: 'Wait' }
   $('steplist').innerHTML = s.steps.length ? s.steps.map((st, i) => `
     <li class="step-row t-${st.type}" data-i="${i}">
       <span class="grip" draggable="true" title="Drag to reorder">&#8942;&#8942;</span>
       <span class="sn">${i + 1}</span>
-      <span class="badge stype">${st.type}</span>
+      <span class="stype">${kind[st.type]}</span>
       <div class="sfields">${
         st.type === 'move' ? `
-          <select data-f="positionId" aria-label="Position">${opts(st.positionId)}</select>
-          <label class="sf"><span>Speed</span>${num('speed', st.speed, '%', 'min="1" max="100" step="5"')}</label>
-          <label class="sf"><span>Dwell</span>${num('dwellMs', st.dwellMs, 'ms', 'min="0" step="100"')}</label>` :
+          <select data-f="positionId" aria-label="Position" title="Position to move to">${opts(st.positionId)}</select>
+          ${num('speed', st.speed, '%', 'Speed', 'min="1" max="100" step="5"')}
+          ${num('dwellMs', st.dwellMs, 'ms', 'Dwell after arriving', 'min="0" step="100"')}` :
         st.type === 'gripper' ? `
-          <label class="sf"><span>Pulse</span>${num('us', st.us, 'µs', `min="${SERVO_MIN}" max="${SERVO_MAX}" step="10"`)}</label>
-          <label class="sf"><span>Settle</span>${num('settleMs', st.settleMs, 'ms', 'min="0" step="100"')}</label>` : `
-          <label class="sf"><span>Wait</span>${num('ms', st.ms, 'ms', 'min="0" step="100"')}</label>`}
+          ${num('us', st.us, 'µs', 'Gripper pulse width', `min="${SERVO_MIN}" max="${SERVO_MAX}" step="10"`)}
+          ${num('settleMs', st.settleMs, 'ms', 'Settle time', 'min="0" step="100"')}` : `
+          ${num('ms', st.ms, 'ms', 'Wait', 'min="0" step="100"')}`}
       </div>
       <div class="sacts">
-        <button type="button" class="btn sm ghost" data-act="up" title="Move up">&uarr;</button>
-        <button type="button" class="btn sm ghost" data-act="down" title="Move down">&darr;</button>
         <button type="button" class="btn sm ghost" data-act="dup" title="Duplicate">&#10697;</button>
         <button type="button" class="btn sm ghost danger-ink" data-act="del" title="Delete">&times;</button>
       </div>
@@ -286,12 +292,18 @@ function markSelected() {
   })
 }
 
-/** Tool path through the move steps; joint angles chain from step to step */
+/** Tool path through the move steps, while the panel is open or the sequence
+ *  runs; joint angles chain from step to step */
 function renderPath() {
-  if (!$('view-sequences').classList.contains('active')) return
+  if (!$('view-control').classList.contains('active')) return
   const s = current()
   const view = armView()
-  if (!s) { view.setPath([]); view.setPreview(null); return }
+  if (!s || !(seqRunner.busy || $<HTMLDetailsElement>('seq-card').open)) {
+    view.setPath([])
+    if (ghost) view.setPreview(null)
+    ghost = false
+    return
+  }
   let seed = statusDegrees()
   const pts: Array<[number, number, number] | null> = []
   const degs: Array<number[] | null> = []
@@ -304,7 +316,7 @@ function renderPath() {
   }
   const active = seqRunner.busy ? seqRunner.info.index : selStep
   view.setPath(pts, active)
-  view.setPreview(degs[active] ?? null)
+  if (ghost) view.setPreview(degs[active] ?? null)
 }
 
 function validate(s: Sequence): string[] {
@@ -332,6 +344,7 @@ async function run(from: number, single: boolean) {
     setMsg('✕ ' + issues.join('\n✕ '), true)
     return showToast('Fix the issues before running', 'err')
   }
+  claim()
   await seqRunner.run(s, { from, single })
   if (single && seqRunner.info.state === 'idle') { selStep = seqRunner.info.index; markSelected(); renderPath() }
 }
@@ -372,5 +385,5 @@ function syncButtons() {
   $<HTMLButtonElement>('run-pause').disabled = !busy
   $('run-pause').innerHTML = st === 'paused' ? '&#9656; Resume' : '&#10073;&#10073; Pause'
   $<HTMLButtonElement>('run-stop').disabled = !busy
-  ;['seq-rename', 'seq-dup', 'seq-del', 'seq-new', 'seq-import'].forEach(id => ($<HTMLButtonElement>(id).disabled = busy))
+  ;['seq-pick', 'seq-rename', 'seq-dup', 'seq-del', 'seq-new', 'seq-import'].forEach(id => ($<HTMLButtonElement>(id).disabled = busy))
 }

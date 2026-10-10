@@ -40,6 +40,8 @@ the robot (it never silently switches to the simulation).
   - *Joint drag*: click a link to pick its joint, then drag the ring around the joint axis. Blue **+** and orange **−** arrows on the ring show which way the joint's angle grows, as in [Joint directions](#joint-directions).
   - Either brings up a panel with the same target in numbers: type a value, or step it with the **−** / **+** buttons by the chosen step (1, 5, 10 or 50 mm or degrees). *Snap drag* makes dragging move in whole steps too.
   - *Preview* mode moves the arm on **Move** or <kbd>Enter</kbd>. *Live* mode follows the drag, throttled to one request at a time at a capped speed.
+- **Positions** (left, under the arm's state) and **Sequences** (right) are panels of the Control tab, beside
+  the arm they drive.
 - **Positions:**
   - Teach the current arm position, or create tool poses by hand.
   - Edit, convert between joints and tool pose, preview as a ghost, and go there at a chosen speed.
@@ -112,7 +114,7 @@ The positions and sequences library is stored in `%APPDATA%\Movens Link\library.
 | `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `movens_config.h` |
 | `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`, its floor in `floor.ts`), sequence runner, library |
 | `src/renderer/styles/` | `app.css` (the firmware's stylesheet), `link.css` (additions), `hud.css` (the full-window 3D view and the panels over it) |
-| `src/renderer/views/` | Control, Positions, Sequences, Calibrate, Settings |
+| `src/renderer/views/` | Control (with its Positions and Sequences panels), Calibrate, Settings |
 | `src/shared/simRobot.ts` | Simulated robot (same REST API as the firmware), used by simulation mode and the mock |
 | `scripts/mock-robot.ts` | HTTP wrapper around the simulated robot |
 | `scripts/joint-diagrams/` | Draws `docs/joints/*.png` with the 3D view's arm model (`src/renderer/lib/armModel.ts`) |

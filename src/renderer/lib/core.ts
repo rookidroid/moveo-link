@@ -40,6 +40,7 @@ type Events = {
   connected: boolean
   estop: void
   library: void
+  preview: 'position' | 'step'  // which panel's pick the ghost now shows
   view: string
   host: string
   mode: Mode

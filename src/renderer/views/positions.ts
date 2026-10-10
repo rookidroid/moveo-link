@@ -1,10 +1,11 @@
-// Positions view: teach, edit, preview and go to named arm positions.
+// Positions panel of the Control view: teach, edit, preview and go to named
+// arm positions.
 
 import { forwardKinematics, inverseKinematics } from '@shared/kinematics'
 import { SERVO_MAX, SERVO_MIN, uid, type Position } from '@shared/types'
 import { armView } from '../lib/arm3d'
 import {
-  $, cal, esc, fmt, isCal, jointLimits, on, pref, publishStatus, request, seg, setPref, showToast,
+  $, cal, emit, esc, fmt, isCal, jointLimits, on, pref, publishStatus, request, seg, setPref, showToast,
   state, statusDegrees, type Seg
 } from '../lib/core'
 import { confirmDialog, promptText } from '../lib/dialog'
@@ -13,10 +14,10 @@ import {
   capturePosition, describePosition, poseFromDegrees, positionDegrees, positionIssues
 } from '../lib/motion'
 import { Runner } from '../lib/runner'
-import { teachCurrent } from './control'
 
 let selected: string | null = null
 let draft: Position | null = null   // being edited; id may not be in the library yet
+let owns = false                    // the ghost shows this panel's pick, not a sequence step
 let segKind: Seg<'joints' | 'pose'>
 let segUnit: Seg<'deg' | 'steps'>
 let segSpeed: Seg<number>
@@ -72,7 +73,7 @@ export function initPositions() {
   segUnit = seg($('pe-unit'), [['deg', 'DEG'], ['steps', 'STEPS']], 'deg', u => switchUnit(u))
   $('pe-jfields').innerHTML = [1, 2, 3, 4, 5].map(i => `
     <label class="field"><span>J${i}</span><span class="inp"><input type="number" step="any" id="pe-j${i}"/><i class="pe-u">°</i></span></label>`).join('')
-  $('pe-form').addEventListener('input', () => { readForm(); renderDraftInfo() })
+  $('pe-form').addEventListener('input', () => { readForm(); claim(); renderDraftInfo() })
   $('pe-form').addEventListener('submit', e => { e.preventDefault(); saveDraft() })
   $('pe-cancel').addEventListener('click', closeEditor)
   $('pe-from-arm').addEventListener('click', fillFromArm)
@@ -84,6 +85,12 @@ export function initPositions() {
 
   on('library', render)
   on('calib', () => { render(); renderDraftInfo() })
+  on('preview', who => {  // a sequence step took the ghost
+    if (who !== 'step') return
+    owns = false
+    selected = null
+    render()
+  })
   render()
 }
 
@@ -91,12 +98,23 @@ export function showPositions() {
   updatePreview()
 }
 
+/** Save the current arm position to the library */
+async function teachCurrent(): Promise<void> {
+  if (state.status.j1 == null) return showToast('No position from the robot yet', 'err')
+  const name = await promptText('Save current position', nextName('P', lib.positions.map(p => p.name)))
+  if (!name) return
+  const p = capturePosition(state.status, uid(), name)
+  lib.positions.push(p)
+  changed()
+  showToast(`Saved ${name}` + (p.joints?.unit === 'steps' ? ' (in steps: arm not calibrated)' : ''))
+}
+
 // ── List ─────────────────────────────────────────────────────────────────────
 function render() {
   if (selected && !findPosition(selected)) selected = null
   const el = $('plist')
   if (!lib.positions.length) {
-    el.innerHTML = `<div class="empty">No positions yet. Move the arm and press <b>Teach current</b>,
+    el.innerHTML = `<div class="empty">No positions yet. Move the arm and press <b>Teach</b>,
       or click the gripper or a link in the 3D view, drag it, and <b>Save as position</b>.</div>`
     updatePreview()
     return
@@ -132,15 +150,26 @@ function render() {
 
 function select(id: string | null) {
   selected = selected === id ? null : id
+  if (selected) claim()
   render()
 }
 
+/** Take the ghost for the selected position or the one being edited; the
+ *  Sequences panel lets go of it */
+function claim() {
+  if (owns) return
+  owns = true
+  emit('preview', 'position')
+}
+
 function updatePreview() {
-  if (!$('view-positions').classList.contains('active')) return
-  const p = draft ?? (selected ? findPosition(selected) : null)
+  if (!$('view-control').classList.contains('active')) return
+  const p = owns ? draft ?? (selected ? findPosition(selected) : null) : null
   const deg = p ? positionDegrees(p, state.calib, statusDegrees()) : null
-  armView().setPreview(deg)
   $('pos-preview-name').textContent = p ? (deg ? `Ghost: ${p.name}` : `${p.name}: no preview`) : ''
+  if (!owns) return
+  armView().setPreview(deg)
+  if (!p) owns = false
 }
 
 async function goTo(p: Position) {
@@ -217,6 +246,7 @@ function openEditor(p: Position, fresh: boolean) {
   if (!draft.pose) draft.pose = { x: 300, y: 0, z: 200, pitch: -90, yaw: null }
   $('pe-title').textContent = fresh ? 'New position' : `Edit ${p.name}`
   $('pos-editor').hidden = false
+  claim()
   writeForm()
   renderDraftInfo()
   $('pos-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -277,6 +307,7 @@ function renderDraftInfo() {
 }
 
 function switchKind(k: 'joints' | 'pose') {
+  claim()
   readForm()
   const d = draft!
   if (k === d.kind) return
@@ -295,6 +326,7 @@ function switchKind(k: 'joints' | 'pose') {
 }
 
 function switchUnit(u: 'deg' | 'steps') {
+  claim()
   readForm()
   const j = draft!.joints!
   if (u === j.unit) return
@@ -314,6 +346,7 @@ function switchUnit(u: 'deg' | 'steps') {
 
 function fillFromArm() {
   if (state.status.j1 == null) return showToast('No position from the robot yet', 'err')
+  claim()
   readForm()
   const snap = capturePosition(state.status, draft!.id, draft!.name)
   if (draft!.kind === 'pose') {
@@ -340,6 +373,7 @@ function saveDraft() {
   if (i >= 0) lib.positions[i] = clean
   else lib.positions.push(clean)
   selected = clean.id
+  claim()
   showToast(`${isNew ? 'Added' : 'Saved'} ${clean.name}`)
   closeEditor()
   changed()

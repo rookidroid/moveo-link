@@ -45,8 +45,8 @@ const TOOL_FIELDS = [
 ]
 
 type Mode = 'view' | 'tool' | 'joint'
-export type ViewHost = 'control' | 'positions' | 'sequences' | 'calibrate' | 'settings'
-const TELE_HOSTS: ViewHost[] = ['control', 'positions']  // tabs with mouse teleoperation
+export type ViewHost = 'control' | 'calibrate' | 'settings'
+const TELE_HOSTS: ViewHost[] = ['control']  // tabs with mouse teleoperation
 
 export class ArmView {
   readonly root = document.createElement('div')

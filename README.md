@@ -35,7 +35,7 @@ the robot (it never silently switches to the simulation).
   - Trail of the tool path.
   - Camera presets (Iso, Front, Side, Top).
 - **Mouse teleoperation** in the 3D view:
-  - *Tool drag*: drag the gizmo on the fingertip. IK solves the arm live, and the ghost turns red when the pose is out of reach. Shift + wheel changes the pitch.
+  - *Tool drag*: drag the gizmo on the fingertip. IK solves the arm live; past the edge of reach or a joint limit, the gizmo and the ghost (now orange) stop at the nearest reachable position. Drag the ring around the fingertip, or use Shift + wheel, to change the pitch.
   - *Joint drag*: click a link to pick its joint, then drag the ring around the joint axis. Blue **+** and orange **−** arrows on the ring show which way the joint's angle grows, as in [Joint directions](#joint-directions).
   - *Preview* mode moves the arm on **Move** or <kbd>Enter</kbd>. *Live* mode follows the drag, throttled to one request at a time at a capped speed.
 - **Positions:**

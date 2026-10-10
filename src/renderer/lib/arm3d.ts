@@ -1,6 +1,7 @@
 // 3D view of the arm (three.js): live arm from /status, a translucent "ghost"
 // for previews, the tool path of a sequence, and mouse teleoperation:
-//   Tool drag   move a gizmo on the fingertip; IK solves the arm (ghost)
+//   Tool drag   move a gizmo on the fingertip, tilt it with the ring around
+//               it; IK solves the arm (ghost), stopping at the edge of reach
 //   Joint drag  click a link, drag its ring to turn that one joint
 // In Preview mode the robot moves on "Move"; in Live mode it follows the drag.
 // Robot frame: +Z up, +X forward at J1 = 0, millimetres.
@@ -8,7 +9,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { TransformControls } from 'three/addons/controls/TransformControls.js'
-import { inverseKinematics, jointFrames, type IkResult, type Vec3 } from '@shared/kinematics'
+import { approachYaw, jointFrames, nearestReachable, type NearestResult, type Vec3 } from '@shared/kinematics'
 import { uid, type Pose, type Position } from '@shared/types'
 import { ArmModel, v3 } from './armModel'
 import {
@@ -22,6 +23,7 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0)
 const Z_AXIS = new THREE.Vector3(0, 0, 1)
 const ZERO = [0, 0, 0, 0, 0]
 const RING_R = [110, 86, 70, 56, 48]
+const TOOL_RING_R = 80  // the pitch ring around the fingertip
 const MARK_DEG = 40  // the + / − arrows on the joint ring sweep this far each way
 const BADGE_MM = 34  // size of their + / − badges
 const PLANAR_TOL = 0.5  // deg: approach this close to the arm plane counts as planar
@@ -68,11 +70,14 @@ export class ArmView {
   private speedPct: number = pref('a3speed', 30)
   private snap: number = pref('a3snap', 5)
   private target: Pose = { x: 0, y: 0, z: 0, pitch: 0, yaw: null }
-  private toolSol: IkResult | null = null
+  private want: Vec3 = [0, 0, 0]  // where the tool was asked to be; target is the nearest pose in reach
+  private clamped = false
+  private toolSol: NearestResult | null = null
   private lastGoodSol: number[] | null = null
   private jointDeg: number[] | null = null
   private jointSel = 0
-  private ringDrag: { u: THREE.Vector3; v: THREE.Vector3; start: number; prev: number; acc: number } | null = null
+  private ringDrag: { axis: THREE.Vector3; pivot: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3
+                      start: number; prev: number; acc: number } | null = null
   private liveBusy = false
   private livePending = false
   private liveTimer = 0
@@ -281,12 +286,14 @@ export class ArmView {
     } else {
       deg = this.previewDeg
     }
+    const edge = this.mode === 'tool' && this.clamped  // held at the edge of reach
     this.ghost.group.visible = !!deg
     if (deg) {
+      const c = cssVar(bad ? '--danger' : edge ? '--warn' : '--accent')
       this.ghost.update(deg, this.servo)
-      this.ghost.setColors(bad ? cssVar('--danger') : cssVar('--accent'), bad ? cssVar('--danger') : cssVar('--accent'))
+      this.ghost.setColors(c, c)
     }
-    ;(this.handle.material as THREE.MeshBasicMaterial).color.set(bad ? cssVar('--danger') : '#ffffff')
+    ;(this.handle.material as THREE.MeshBasicMaterial).color.set(bad ? cssVar('--danger') : edge ? cssVar('--warn') : '#ffffff')
     this.updateRing()
     this.invalidate()
   }
@@ -399,10 +406,15 @@ export class ArmView {
       inp.addEventListener('change', () => {
         const k = inp.dataset.t as keyof Pose
         const v = parseFloat(inp.value)
-        if (k === 'yaw') this.target.yaw = Number.isFinite(v) ? v : null
-        else if (Number.isFinite(v)) this.target[k] = v
-        this.handle.position.set(this.target.x, this.target.y, this.target.z)
-        this.solveTool()
+        const xyz = ['x', 'y', 'z'].indexOf(k)
+        if (k === 'yaw') this.solveTool({ yaw: Number.isFinite(v) ? v : null })
+        else if (!Number.isFinite(v)) this.solveTool()
+        else if (xyz < 0) this.solveTool({ pitch: v })
+        else {
+          this.want = [this.target.x, this.target.y, this.target.z]
+          this.want[xyz] = v
+          this.solveTool()
+        }
         this.scheduleLive()
       }))
     this.root.querySelectorAll<HTMLInputElement>('[data-jr]').forEach(inp => {
@@ -432,13 +444,12 @@ export class ArmView {
       [['view', 'Orbit'], ['tool', 'Tool drag'], ['joint', 'Joint drag']], m)
     this.jointSel = 0
     this.ringDrag = null
-    if (m === 'view') {
+    if (m !== 'tool') {
       this.gizmo.detach()
       this.handle.visible = false
-      this.jointDeg = null
-    } else {
-      this.resetTarget()
     }
+    if (m === 'view') this.jointDeg = null
+    else this.resetTarget()
     this.updateHud()
     this.updateGhost()
   }
@@ -451,7 +462,7 @@ export class ArmView {
     this.q('go').hidden = this.follow === 'live'
     this.root.classList.toggle('tele-on', tele)
     this.q('help').textContent =
-      this.mode === 'tool' ? 'Drag the arrows / planes on the fingertip · Shift+wheel: pitch · Enter: move' :
+      this.mode === 'tool' ? 'Drag the arrows / planes to move · Ring or Shift+wheel: pitch · Enter: move' :
       this.mode === 'joint' ? 'Click a link to pick its joint, then drag the ring · Enter: move' :
       'Drag: orbit · Right-drag: pan · Wheel: zoom'
     if (tele) this.updateResult()
@@ -469,10 +480,11 @@ export class ArmView {
       const planeYaw = Math.atan2(fr.tool[1], fr.tool[0]) * 180 / Math.PI
       const dy = Math.abs(((yaw - planeYaw + 540) % 360) - 180)
       this.target = { x: fr.tool[0], y: fr.tool[1], z: fr.tool[2], pitch, yaw: dy < PLANAR_TOL ? null : yaw }
-      this.handle.position.copy(v3(fr.tool))
+      this.want = [...fr.tool]
       this.handle.visible = true
       this.gizmo.attach(this.handle)
       this.lastGoodSol = deg.slice()
+      this.toolSol = null
       this.solveTool()
     } else if (this.mode === 'joint') {
       this.jointDeg = deg.slice()
@@ -485,18 +497,44 @@ export class ArmView {
   // ── Tool drag ──────────────────────────────────────────────────────────────
   private onHandleMoved() {
     const p = this.handle.position
-    Object.assign(this.target, { x: p.x, y: p.y, z: p.z })
+    this.want = [p.x, p.y, p.z]
     this.solveTool()
     this.scheduleLive()
   }
 
-  private solveTool() {
+  /** Solve the arm for the wanted position with a new pitch / yaw; out of reach, settle for the nearest pose */
+  private solveTool(turn: { pitch?: number; yaw?: number | null } = {}) {
     const { lo, hi } = jointLimits()
     const seed = this.lastGoodSol || statusDegrees() || ZERO
-    this.toolSol = inverseKinematics(this.target, seed, lo, hi)
-    if (this.toolSol.status === 'ok') this.lastGoodSol = this.toolSol.deg
+    const t = this.target, had = this.toolSol?.status === 'ok'
+    const pose: Pose = { ...t, ...turn, x: this.want[0], y: this.want[1], z: this.want[2] }
+    const from: Vec3 | undefined = had ? [t.x, t.y, t.z] : undefined
+    let r = nearestReachable(pose, seed, lo, hi, from)
+    let short = false
+    if (r.status !== 'ok' && had && turn.pitch != null) {  // cannot tilt that far here: tilt as far as it can
+      let a = t.pitch, b = turn.pitch
+      for (let i = 0; i < 8; i++) {
+        const mid = (a + b) / 2
+        const rm = nearestReachable({ ...pose, pitch: mid }, seed, lo, hi, from)
+        if (rm.status === 'ok') { a = pose.pitch = mid; r = rm; short = true } else b = mid
+      }
+    }
+    if (r.status === 'ok') {
+      this.target = { ...pose, x: r.pos[0], y: r.pos[1], z: r.pos[2] }
+      this.toolSol = r
+      this.lastGoodSol = r.deg
+      this.clamped = r.clamped || short
+    } else if (had) {
+      this.clamped = true  // no way there: stay at the last pose
+    } else {
+      this.target = pose
+      this.toolSol = r
+      this.clamped = false
+    }
+    // The gizmo's handle stays with the arm, also while it is dragged past the edge of reach
+    this.handle.position.set(this.target.x, this.target.y, this.target.z)
     this.root.querySelectorAll<HTMLInputElement>('[data-t]').forEach(inp => {
-      if (document.activeElement === inp) return
+      if (document.activeElement === inp && !this.clamped) return
       const v = this.target[inp.dataset.t as keyof Pose]
       inp.value = v == null ? '' : (+v).toFixed(1)
     })
@@ -510,34 +548,37 @@ export class ArmView {
     e.stopImmediatePropagation()
     const d = e.deltaY || e.deltaX
     if (!d) return
-    this.target.pitch = Math.max(-180, Math.min(180, Math.round(this.target.pitch) + (d < 0 ? 5 : -5)))
-    this.solveTool()
+    this.solveTool({ pitch: Math.max(-180, Math.min(180, Math.round(this.target.pitch) + (d < 0 ? 5 : -5))) })
     this.scheduleLive()
   }
 
-  // ── Joint drag ─────────────────────────────────────────────────────────────
+  // ── Rings: joint drag, tool pitch ──────────────────────────────────────────
   private ndc(e: PointerEvent): THREE.Vector2 {
     const r = this.renderer.domElement.getBoundingClientRect()
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
   }
 
   private onPointerDown(e: PointerEvent) {
-    if (this.mode !== 'joint' || e.button !== 0) return
+    if (this.mode === 'view' || e.button !== 0) return
     const ray = new THREE.Raycaster()
     ray.setFromCamera(this.ndc(e), this.camera)
-    if (this.ring.visible && ray.intersectObject(this.ringPick, false).length) {
-      const fr = jointFrames(this.jointDeg!)
-      const axis = v3(fr.axes[this.jointSel - 1]).normalize()
+    const f = this.ringFrame()
+    if (f && ray.intersectObject(this.ringPick, false).length) {
+      const { axis, pivot } = f
       const u = new THREE.Vector3().crossVectors(axis, Math.abs(axis.z) < 0.9 ? Z_AXIS : Y_AXIS).normalize()
       const v = new THREE.Vector3().crossVectors(axis, u)
-      const a0 = this.ringAngle(e, u, v)
+      const start = this.mode === 'tool' ? this.target.pitch : this.jointDeg![this.jointSel - 1]
+      const grab = { axis, pivot, u, v, start, prev: 0, acc: 0 }
+      const a0 = this.ringAngle(e, grab)
       if (a0 == null) return
-      this.ringDrag = { u, v, start: this.jointDeg![this.jointSel - 1], prev: a0, acc: 0 }
+      grab.prev = a0
+      this.ringDrag = grab
       this.orbit.enabled = false
       this.renderer.domElement.setPointerCapture(e.pointerId)
       e.stopImmediatePropagation()
       return
     }
+    if (this.mode !== 'joint') return
     const hits = ray.intersectObjects([...this.ghost.parts, ...this.live.parts], false)
       .filter(h => h.object.parent?.visible)
     if (hits.length) {
@@ -546,28 +587,56 @@ export class ArmView {
     }
   }
 
-  /** Pointer angle (deg) around the selected joint axis, in the plane basis u, v */
-  private ringAngle(e: PointerEvent, u: THREE.Vector3, v: THREE.Vector3): number | null {
-    const fr = jointFrames(this.jointDeg!)
-    const axis = v3(fr.axes[this.jointSel - 1]).normalize()
-    const pivot = v3(fr.pivots[this.jointSel - 1])
+  /** The ring to show: around the picked joint's axis, or around the fingertip to tilt the tool */
+  private ringFrame(): { axis: THREE.Vector3; pivot: THREE.Vector3; radius: number; ref: THREE.Vector3 } | null {
+    if (this.mode === 'joint' && this.jointSel > 0 && this.jointDeg) {
+      const fr = jointFrames(this.jointDeg), k = this.jointSel - 1
+      const axis = v3(fr.axes[k]).normalize()
+      // Arrows start from the link the joint moves
+      const ref = v3([fr.approach, unit(fr.elbow, fr.shoulder), fr.axes[3], fr.approach, fr.approach][k])
+      if (k === 0) ref.set(fr.wrist[0], fr.wrist[1], 0)
+      if (k === 3) ref.crossVectors(v3(fr.axes[4]), axis)  // where J5 tips the tool
+      return { axis, pivot: v3(fr.pivots[k]), radius: RING_R[k], ref }
+    }
+    if (this.mode === 'tool' && this.toolSol?.status === 'ok') {
+      // Pitch turns the tool about the horizontal axis square to its heading; arrows start from the tool
+      const t = this.target
+      const yaw = approachYaw(t, this.toolSol.deg), p = t.pitch * Math.PI / 180
+      return {
+        axis: new THREE.Vector3(Math.sin(yaw), -Math.cos(yaw), 0), pivot: new THREE.Vector3(t.x, t.y, t.z), radius: TOOL_RING_R,
+        ref: new THREE.Vector3(Math.cos(p) * Math.cos(yaw), Math.cos(p) * Math.sin(yaw), Math.sin(p))
+      }
+    }
+    return null
+  }
+
+  /** Pointer angle (deg) around the grabbed ring's axis, in the plane basis u, v */
+  private ringAngle(e: PointerEvent, d: { axis: THREE.Vector3; pivot: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3 }): number | null {
     const ray = new THREE.Raycaster()
     ray.setFromCamera(this.ndc(e), this.camera)
-    const hit = ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(axis, pivot), new THREE.Vector3())
+    const hit = ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(d.axis, d.pivot), new THREE.Vector3())
     if (!hit) return null
-    hit.sub(pivot)
-    return Math.atan2(hit.dot(v), hit.dot(u)) * 180 / Math.PI
+    hit.sub(d.pivot)
+    return Math.atan2(hit.dot(d.v), hit.dot(d.u)) * 180 / Math.PI
   }
 
   private onPointerMove(e: PointerEvent) {
     const d = this.ringDrag
-    if (!d || !this.jointDeg) return
-    const a = this.ringAngle(e, d.u, d.v)
+    if (!d) return
+    const a = this.ringAngle(e, d)
     if (a == null) return
     d.acc += ((a - d.prev + 540) % 360) - 180
     d.prev = a
     let deg = d.start + d.acc
     if (this.snap) deg = Math.round(deg / this.snap) * this.snap
+    if (this.mode === 'tool') {
+      deg = Math.max(-180, Math.min(180, deg))
+      if (deg === this.target.pitch) return
+      this.solveTool({ pitch: deg })
+      this.scheduleLive()
+      return
+    }
+    if (!this.jointDeg) return
     const c = cal(this.jointSel)
     if (c?.limits) deg = Math.max(c.min, Math.min(c.max, deg))
     this.jointDeg[this.jointSel - 1] = deg
@@ -610,28 +679,23 @@ export class ArmView {
   }
 
   private updateRing() {
-    const show = this.mode === 'joint' && this.jointSel > 0 && !!this.jointDeg
-    this.ring.visible = this.ringMarks.visible = show
-    if (show) {
-      const fr = jointFrames(this.jointDeg!)
-      const k = this.jointSel - 1
-      const axis = v3(fr.axes[k]).normalize()
-      this.ring.position.copy(v3(fr.pivots[k]))
+    const f = this.ringFrame()
+    this.ring.visible = this.ringMarks.visible = !!f
+    if (f) {
+      const { axis, radius: r, ref: link } = f
+      this.ring.position.copy(f.pivot)
       this.ring.quaternion.setFromUnitVectors(Z_AXIS, axis)
-      this.ring.scale.setScalar(RING_R[k])
+      this.ring.scale.setScalar(r)
       ;(this.ring.material as THREE.MeshBasicMaterial).color.set(cssVar('--warn'))
 
-      // Arrows start from the link the joint moves: local X = that link, Z = axis
-      const link = v3([fr.approach, unit(fr.elbow, fr.shoulder), fr.axes[3], fr.approach, fr.approach][k])
-      if (k === 0) link.set(fr.wrist[0], fr.wrist[1], 0)
-      if (k === 3) link.crossVectors(v3(fr.axes[4]), axis)  // where J5 tips the tool
+      // Arrows: local X = where they start, Z = axis
       link.addScaledVector(axis, -link.dot(axis))
       if (link.lengthSq() < 1e-6) link.crossVectors(axis, Math.abs(axis.z) < 0.9 ? Z_AXIS : Y_AXIS)
       link.normalize()
       this.ringMarks.matrix.makeBasis(link, new THREE.Vector3().crossVectors(axis, link), axis)
-        .scale(new THREE.Vector3(RING_R[k], RING_R[k], RING_R[k])).setPosition(this.ring.position)
+        .scale(new THREE.Vector3(r, r, r)).setPosition(this.ring.position)
       this.ringMarks.matrixWorldNeedsUpdate = true
-      for (const o of this.ringMarks.children) if (o instanceof THREE.Sprite) o.scale.setScalar(BADGE_MM / RING_R[k])
+      for (const o of this.ringMarks.children) if (o instanceof THREE.Sprite) o.scale.setScalar(BADGE_MM / r)
     }
     this.invalidate()
   }
@@ -663,18 +727,23 @@ export class ArmView {
   // ── Sending ────────────────────────────────────────────────────────────────
   private command(): { path: string; body: Record<string, number> } | null {
     const speed = this.speedPct / 100
+    const joints = (deg: number[]) => {
+      const body: Record<string, number> = { speed }
+      deg.forEach((v, k) => (body['a' + (k + 1)] = +v.toFixed(2)))
+      return { path: '/movejoints', body }
+    }
     if (this.mode === 'tool') {
       if (this.toolSol?.status !== 'ok') return null
+      if (this.clamped) {  // on the edge of reach the robot's own IK could refuse the pose: send its joints
+        const { lo, hi } = jointLimits()
+        return joints(this.toolSol.deg.map((v, k) => Math.max(lo[k], Math.min(hi[k], v))))
+      }
       const t = this.target
       const body: Record<string, number> = { x: +t.x.toFixed(2), y: +t.y.toFixed(2), z: +t.z.toFixed(2), pitch: +t.pitch.toFixed(2), speed }
       if (t.yaw != null) body.yaw = +t.yaw.toFixed(2)
       return { path: '/movepose', body }
     }
-    if (this.mode === 'joint' && this.jointDeg) {
-      const body: Record<string, number> = { speed }
-      this.jointDeg.forEach((v, k) => (body['a' + (k + 1)] = +v.toFixed(2)))
-      return { path: '/movejoints', body }
-    }
+    if (this.mode === 'joint' && this.jointDeg) return joints(this.jointDeg)
     return null
   }
 
@@ -682,14 +751,15 @@ export class ArmView {
     const res = this.q('res')
     const go = this.q<HTMLButtonElement>('go')
     let text = '', err = false
+    const edge = this.mode === 'tool' && this.clamped
     if (this.mode === 'tool') {
-      if (this.toolSol?.status === 'ok') text = 'REACHABLE ▸ ' + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join('  ')
+      if (this.toolSol?.status === 'ok') text = (edge ? 'NEAREST REACHABLE ▸ ' : 'REACHABLE ▸ ') + this.toolSol.deg.map((v, i) => `J${i + 1} ${fmt(v)}°`).join('  ')
       else { err = true; text = this.toolSol?.status === 'limits' ? '✕ pose outside joint limits' : '✕ pose unreachable' }
     } else if (this.mode === 'joint') {
       text = this.jointSel ? `J${this.jointSel} selected — drag the ring or its slider` : 'Click a link of the arm to pick a joint'
     }
     res.textContent = text
-    res.className = 'result' + (err ? ' err' : '')
+    res.className = 'result' + (err ? ' err' : edge ? ' warn' : '')
     go.disabled = !this.command()
   }
 

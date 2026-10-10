@@ -273,6 +273,7 @@ fieldset:disabled .jbtn{opacity:.38;cursor:not-allowed;transform:none}
 .result{padding:8px 10px;font:12px/1.5 var(--mono);color:var(--ink-2);background:var(--inset);
   border:1px solid var(--line);border-left:3px solid var(--ok);word-spacing:.15em}
 .result.err{color:var(--danger);border-left-color:var(--danger)}
+.result.warn{color:var(--warn);border-left-color:var(--warn)}
 .result:empty{display:none}
 
 /* ── Joint control ─────────────────────────────────────── */

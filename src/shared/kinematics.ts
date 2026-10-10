@@ -113,6 +113,14 @@ export type IkResult =
   | { status: 'unreachable' }
   | { status: 'limits' }
 
+/** Heading (rad) of the tool approach: the given yaw, or toward the target in the arm's vertical plane */
+export function approachYaw(target: Pose, current: number[]): number {
+  const eps = 1e-4
+  if (target.yaw != null && Number.isFinite(target.yaw)) return target.yaw * D2R
+  return (Math.abs(target.x) > eps || Math.abs(target.y) > eps)
+    ? Math.atan2(target.y, target.x) : current[0] * D2R
+}
+
 /**
  * Same solver as the firmware. Without yaw (null / undefined) the approach
  * stays in the arm's vertical plane. `current` seeds the choice among the
@@ -121,13 +129,7 @@ export type IkResult =
 export function inverseKinematics(target: Pose, current: number[],
                                   lo: number[], hi: number[]): IkResult {
   const eps = 1e-4
-  const planar = target.yaw == null || !Number.isFinite(target.yaw)
-
-  let yaw = planar ? 0 : (target.yaw as number) * D2R
-  if (planar) {
-    yaw = (Math.abs(target.x) > eps || Math.abs(target.y) > eps)
-      ? Math.atan2(target.y, target.x) : current[0] * D2R
-  }
+  const yaw = approachYaw(target, current)
   const p = target.pitch * D2R
   const a: Vec3 = [Math.cos(p) * Math.cos(yaw), Math.cos(p) * Math.sin(yaw), Math.sin(p)]
 
@@ -183,4 +185,86 @@ export function inverseKinematics(target: Pose, current: number[],
 
   if (!reachable) return { status: 'unreachable' }
   return Number.isFinite(bestCost) ? { status: 'ok', deg: best } : { status: 'limits' }
+}
+
+export type NearestResult =
+  | { status: 'ok'; deg: number[]; pos: Vec3; clamped: boolean }
+  | { status: 'unreachable' }
+  | { status: 'limits' }
+
+// Clamped poses keep this far inside the reach / the joint limits, so they
+// still solve after being rounded (saved positions, /movepose requests)
+const REACH_INSET = 0.5  // mm
+const LIMIT_INSET = 0.1  // deg
+const STEPS: Vec3[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+
+/**
+ * IK for the target, or for the closest position the arm can reach with the
+ * same pitch and yaw (`clamped`). `from` is a position known to be reachable;
+ * joint limits are met by working toward the target from there.
+ */
+export function nearestReachable(target: Pose, current: number[], lo: number[], hi: number[],
+                                 from?: Vec3): NearestResult {
+  const goal: Vec3 = [target.x, target.y, target.z]
+  const solve = (q: Vec3, l: number[], h: number[]) =>
+    inverseKinematics({ ...target, x: q[0], y: q[1], z: q[2] }, current, l, h)
+  const first = solve(goal, lo, hi)
+  if (first.status === 'ok') return { status: 'ok', deg: first.deg, pos: goal, clamped: false }
+
+  // Out of reach: pull the wrist onto the shell it can sweep around the shoulder
+  const yaw = approachYaw(target, current), p = target.pitch * D2R
+  const a: Vec3 = [Math.cos(p) * Math.cos(yaw), Math.cos(p) * Math.sin(yaw), Math.sin(p)]
+  const w = sub(goal, mul(KIN.D6, a))
+  const r = Math.hypot(w[0], w[1])
+  const t1 = r > 1e-4 ? Math.atan2(w[1], w[0]) : current[0] * D2R
+  const L = Math.hypot(KIN.D4, KIN.A3)
+  let rho = r - KIN.A1, h = w[2] - KIN.D1
+  const d = Math.hypot(rho, h)
+  const dc = Math.max(Math.abs(KIN.A2 - L) + REACH_INSET, Math.min(KIN.A2 + L - REACH_INSET, d))
+  if (d > 1e-6) { rho *= dc / d; h *= dc / d } else { rho = 0; h = dc }
+  const near: Vec3 = dc === d ? goal
+    : add([(KIN.A1 + rho) * Math.cos(t1), (KIN.A1 + rho) * Math.sin(t1), KIN.D1 + h], mul(KIN.D6, a))
+  const left = (q: Vec3) => Math.hypot(near[0] - q[0], near[1] - q[1], near[2] - q[2])
+
+  // Stay a little inside the joint limits, except for joints that start out closer to one
+  let l = lo.map(v => v + LIMIT_INSET), u = hi.map(v => v - LIMIT_INSET)
+  let start = from ? solve(from, lo, hi) : null
+  if (start?.status !== 'ok') start = null
+  if (start) {
+    const at = start.deg
+    l = l.map((v, j) => Math.max(lo[j], Math.min(v, at[j])))
+    u = u.map((v, j) => Math.min(hi[j], Math.max(v, at[j])))
+  }
+  let s = solve(near, l, u)
+  if (s.status !== 'ok' && !start) s = solve(near, lo, hi)
+  if (s.status === 'ok') return { status: 'ok', deg: s.deg, pos: near, clamped: true }
+  if (!from || !start) return first
+  let deg = start.deg, pos = from
+
+  // Joint limits in the way: go as far as the straight line allows ...
+  let good = 0, bad = 1
+  for (let i = 0; i < 20; i++) {
+    const t = (good + bad) / 2
+    const q = add(from, mul(t, sub(near, from)))
+    s = solve(q, l, u)
+    if (s.status === 'ok') { good = t; deg = s.deg; pos = q } else bad = t
+  }
+  // ... then slide along the limit while that gets closer
+  let step = 20
+  for (let calls = 0; step >= 0.25 && calls < 60;) {
+    const d0 = left(pos)
+    if (d0 < 1e-3) break
+    let moved = false
+    for (const dir of [mul(1 / d0, sub(near, pos)), ...STEPS]) {
+      const q = add(pos, mul(Math.min(step, d0), dir))
+      if (left(q) > d0 - 1e-6) continue
+      calls++
+      s = solve(q, l, u)
+      if (s.status !== 'ok') continue
+      deg = s.deg; pos = q; moved = true
+      break
+    }
+    if (!moved) step /= 2
+  }
+  return { status: 'ok', deg, pos, clamped: true }
 }

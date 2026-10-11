@@ -1,8 +1,6 @@
 // Shapes of the Movens firmware REST API and of the movens-link library.
 
-export const NUM_JOINTS = 5
 export const SERVO_MIN = 700
-export const SERVO_MID = 1500
 export const SERVO_MAX = 2300
 export const DEFAULT_HOST = '192.168.4.1'
 

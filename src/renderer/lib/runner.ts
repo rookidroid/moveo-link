@@ -12,7 +12,7 @@ export interface RunnerDeps {
   now?(): number
 }
 
-export type RunState = 'idle' | 'running' | 'paused' | 'error'
+type RunState = 'idle' | 'running' | 'paused' | 'error'
 
 export interface RunInfo {
   state: RunState
@@ -22,10 +22,10 @@ export interface RunInfo {
   message: string
 }
 
-export const POLL_MS = 150
-export const START_GRACE_MS = 600   // a zero-length move never reports motion
+const POLL_MS = 150
+const START_GRACE_MS = 600   // a zero-length move never reports motion
 export const STEP_TIMEOUT_MS = 120000
-export const GRIPPER_SETTLE_MS = 500
+const GRIPPER_SETTLE_MS = 500
 
 class Aborted extends Error {}
 
@@ -174,7 +174,7 @@ export class Runner {
   }
 }
 
-export function describeStep(s: Step, position: (id: string) => Position | undefined): string {
+function describeStep(s: Step, position: (id: string) => Position | undefined): string {
   switch (s.type) {
     case 'move': return `Move to ${position(s.positionId)?.name ?? '(missing position)'} at ${s.speed}%`
     case 'gripper': return `Gripper → ${s.us} µs`

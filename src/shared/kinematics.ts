@@ -47,7 +47,6 @@ function armFrame(t1: number, phi: number): ArmFrame {
 
 /** Key points and joint axes of the arm, for drawing and for FK */
 export interface ArmFrames {
-  base: Vec3
   shoulder: Vec3      // J2 axis point
   elbow: Vec3         // J3 axis point
   wrist: Vec3         // J5 axis point
@@ -71,7 +70,7 @@ export function jointFrames(deg: number[]): ArmFrames {
   const forearmMid = add(elbow, mul(KIN.D4 * 0.45, F.f))
 
   return {
-    base: [0, 0, 0], shoulder, elbow, wrist, tool, approach: t,
+    shoulder, elbow, wrist, tool, approach: t,
     axes: [EZ, F.n, F.n, F.f, cross(F.f, bend)],
     pivots: [[0, 0, KIN.D1 * 0.35], shoulder, elbow, forearmMid, wrist]
   }

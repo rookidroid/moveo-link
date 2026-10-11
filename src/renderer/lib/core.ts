@@ -37,7 +37,6 @@ export function setPref(key: string, v: unknown) {
 type Events = {
   status: Status
   calib: Calib
-  connected: boolean
   estop: void
   library: void
   preview: 'position' | 'step'  // which panel's pick the ghost now shows
@@ -54,7 +53,7 @@ export function emit<K extends keyof Events>(evt: K, data: Events[K]) {
 
 // ── Shared robot state ───────────────────────────────────────────────────────
 /** 'sim': the built-in simulated arm (default); 'robot': the real arm over WiFi */
-export type Mode = 'sim' | 'robot'
+type Mode = 'sim' | 'robot'
 
 export const state = {
   status: {} as Partial<Status>,
@@ -83,18 +82,17 @@ export function jointLimits(): { lo: number[]; hi: number[] } {
   return { lo, hi }
 }
 
-export function setConnected(ok: boolean) {
+function setConnected(ok: boolean) {
   if (ok === state.connected) return
   state.connected = ok
   renderConn()
-  emit('connected', ok)
 }
 
 // ── Connection: simulation until the user connects ───────────────────────────
 const sim = new SimRobot()
 let connecting = false
 
-export function renderConn() {
+function renderConn() {
   const robot = state.mode === 'robot'
   $('dot').className = 'led ' + (!robot ? 'sim' : state.connected ? 'ok' : state.connected === false ? 'err' : '')
   $('conn-status').textContent = connecting ? 'Connecting' : !robot ? 'Simulation'
@@ -172,18 +170,16 @@ export async function request<T = any>(path: string, body?: unknown): Promise<Ap
 }
 
 /** GET without body, POST JSON with one. Returns the reply, or null after
- *  showing the error (also kept in api.lastError). Commands speed up polling. */
+ *  showing the error. Commands speed up polling. */
 export async function api<T = any>(path: string, body?: unknown): Promise<T | null> {
   const r = await request<T>(path, body)
   if (!r.ok) {
-    api.lastError = r.error || 'Request failed'
-    showToast(api.lastError, 'err')
+    showToast(r.error || 'Request failed', 'err')
     return null
   }
   if (body !== undefined) kick()
   return r.data as T
 }
-api.lastError = ''
 
 export function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
   const t = $('toast') as HTMLElement & { _timer?: number }
@@ -246,7 +242,7 @@ export function confirmTap(btn: HTMLElement, fn: () => void, prompt = 'Tap again
 }
 
 // ── Calibration (shared by every view) ──────────────────────────────────────
-export async function loadCalib(): Promise<boolean> {
+async function loadCalib(): Promise<boolean> {
   const r = await api<Calib>('/calib')
   if (!r) return false
   state.calib = r
@@ -300,5 +296,3 @@ export function startPolling() {
   window.addEventListener('focus', () => { calibPending = true })
   pollStatus()
 }
-
-export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))

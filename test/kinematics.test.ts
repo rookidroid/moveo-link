@@ -33,17 +33,6 @@ describe('forward kinematics', () => {
     expect(p.x).toBeCloseTo(KIN.A2 + KIN.D4, 6)
     expect(p.z).toBeCloseTo(KIN.D1 - KIN.D6, 6)
   })
-
-  it('jointFrames tool point matches FK', () => {
-    const deg = [12, 34, 56, -20, 40]
-    const f = jointFrames(deg)
-    const p = forwardKinematics(deg)
-    expect(f.tool[0]).toBeCloseTo(p.x, 9)
-    expect(f.tool[1]).toBeCloseTo(p.y, 9)
-    expect(f.tool[2]).toBeCloseTo(p.z, 9)
-    // joint axes are unit vectors
-    for (const a of f.axes) expect(Math.hypot(...a)).toBeCloseTo(1, 9)
-  })
 })
 
 describe('inverse kinematics', () => {

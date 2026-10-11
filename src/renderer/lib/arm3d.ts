@@ -367,7 +367,6 @@ export class ArmView {
       }
       this.live.update(this.liveShown, this.servo)
     }
-    if (!this.root.isConnected) return
     if (this.ghost.group.visible) this.ghost.showApartFrom(this.live.group.visible ? this.live : null)
     this.renderer.render(this.scene, this.camera)
     if (animating) this.invalidate()
@@ -977,7 +976,7 @@ export class ArmView {
   }
 
   private onKey(e: KeyboardEvent) {
-    if (e.key !== 'Enter' || this.mode === 'view' || this.follow !== 'preview' || !this.root.isConnected) return
+    if (e.key !== 'Enter' || this.mode === 'view' || this.follow !== 'preview') return
     const t = e.target as HTMLElement
     if (t.closest('input, textarea, select, button, .modal-back')) return
     e.preventDefault()

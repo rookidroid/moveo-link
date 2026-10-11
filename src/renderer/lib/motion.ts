@@ -7,9 +7,9 @@ import type { Calib, Pose, Position, Status } from '@shared/types'
 const J = [1, 2, 3, 4, 5]
 const isCal = (calib: Calib, i: number) => Math.abs(calib['j' + i]?.spd ?? 0) > 1e-6
 
-export const fullyCalibrated = (calib: Calib) => J.every(i => isCal(calib, i))
+const fullyCalibrated = (calib: Calib) => J.every(i => isCal(calib, i))
 
-export function limitsOf(calib: Calib) {
+function limitsOf(calib: Calib) {
   return {
     lo: J.map(i => (calib['j' + i]?.limits ? calib['j' + i].min : -Infinity)),
     hi: J.map(i => (calib['j' + i]?.limits ? calib['j' + i].max : Infinity))
@@ -17,7 +17,7 @@ export function limitsOf(calib: Calib) {
 }
 
 /** Speed fraction 0.01..1 from a percentage */
-export const speedFraction = (pct: number) => Math.min(1, Math.max(0.01, (pct || 100) / 100))
+const speedFraction = (pct: number) => Math.min(1, Math.max(0.01, (pct || 100) / 100))
 
 /** REST call that moves the arm to a position */
 export function moveCommand(p: Position, speedPct = 100): { path: string; body: Record<string, number> } {

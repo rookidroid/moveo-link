@@ -115,9 +115,9 @@ The positions and sequences library is stored in `%APPDATA%\Movens Link\library.
 | `src/preload/` | `window.movens` bridge (IPC) |
 | `src/shared/kinematics.ts` | Port of the firmware's `kinematics.cpp`. Keep `KIN` in sync with `movens_config.h` |
 | `src/renderer/lib/` | API/polling core, 3D view (`arm3d.ts`, its floor in `floor.ts`), sequence runner, library |
-| `src/renderer/styles/` | `app.css` (the firmware's stylesheet), `link.css` (additions), `hud.css` (the full-window 3D view and the panels over it) |
+| `src/renderer/styles/` | `app.css` (base styles, from the firmware's pages), `link.css` (additions), `hud.css` (the full-window 3D view and the panels over it) |
 | `src/renderer/views/` | Control (with its Positions and Sequences panels) and the connection panel |
-| `src/shared/simRobot.ts` | Simulated robot (same REST API as the firmware), used by simulation mode and the mock |
+| `src/shared/simRobot.ts` | Simulated robot (the part of the firmware's REST API the app uses), used by simulation mode and the mock |
 | `scripts/mock-robot.ts` | HTTP wrapper around the simulated robot |
 | `scripts/joint-diagrams/` | Draws `docs/joints/*.png` with the 3D view's arm model (`src/renderer/lib/armModel.ts`) |
 

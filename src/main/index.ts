@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { constants, promises as fs } from 'node:fs'
+import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import icon from '../../build/icon.png?asset'
@@ -84,17 +84,7 @@ function registerIpc() {
   })
 }
 
-// The app was called Moveo Link: carry its library and settings over once
-async function migrateFromMoveo(dir: string) {
-  const old = join(app.getPath('appData'), 'Moveo Link')
-  await fs.mkdir(dir, { recursive: true })
-  for (const name of ['library.json', 'settings.json']) {
-    await fs.copyFile(join(old, name), join(dir, name), constants.COPYFILE_EXCL).catch(() => {})
-  }
-}
-
 app.whenReady().then(async () => {
-  await migrateFromMoveo(app.getPath('userData'))
   store = new JsonStore(app.getPath('userData'))
   settings = await store.loadSettings()
   // Development override, e.g. MOVENS_HOST=localhost:8080 for the mock robot

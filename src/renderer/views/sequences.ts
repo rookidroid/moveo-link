@@ -15,7 +15,7 @@ let ghost = false          // the ghost shows the selected step, not a pick in t
 let quiet = false         // library change made by the step editor itself: keep focus, no re-render
 let dragFrom = -1
 
-export const seqRunner = new Runner({
+const seqRunner = new Runner({
   api: (p, b) => request(p, b),
   position: findPosition,
   onStatus: publishStatus
@@ -172,10 +172,6 @@ function claim() {
   if (ghost) return
   ghost = true
   emit('preview', 'step')
-}
-
-export function showSequences() {
-  renderPath()
 }
 
 function touch(s: Sequence, keepFocus = false) {

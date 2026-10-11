@@ -36,13 +36,9 @@ body{display:flex;flex-direction:column;overflow:hidden}
 .stage summary.card-head::before{content:"\25BE";width:10px;font:12px/1 var(--sans);color:var(--ink-3)}
 .stage details.card:not([open]) > summary.card-head{padding-right:16px;border-bottom:0}
 .stage details.card:not([open]) > summary.card-head::before{content:"\25B8"}
-.stage details.card:not([open]) > summary.card-head > :is(.btn,.lbl,.spacer,div){display:none}
+.stage details.card:not([open]) > summary.card-head > :is(.btn,.spacer){display:none}
 /* Its reading stays in the title, at the title's size */
 .stage .card-head .big{font-size:15px}
-/* The expanders inside one open and close on their own */
-.stage details.card details{background:transparent}
-.stage details.card details:not([open]) > summary{border-bottom:0}
-.stage details.card details:not([open]) > summary::before{content:"+"}
 
 /* Room is tight in a column */
 .stage .tile{gap:1px;padding:5px 6px}

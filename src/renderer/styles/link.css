@@ -1,7 +1,5 @@
 /* movens-link additions on top of the firmware stylesheet (app.css) */
 
-.view[hidden]{display:none!important}
-
 .grow2{flex:2 1 220px!important}
 .mono{font:12px var(--mono);font-variant-numeric:tabular-nums}
 code{font:12px var(--mono);color:var(--ink)}
@@ -17,12 +15,12 @@ select{cursor:pointer}
 /* ── Type ──────────────────────────────────────────────── */
 /* Sentence case: the firmware sheet sets its labels in spaced capitals, which is
    a lot of them across the app. Only the brand mark and STOP keep theirs. */
-.conn,.card-head h2,.lbl,.sub h3,.btn,.field > span:not(.inp),.badge,summary,.jname,
+.conn,.card-head h2,.lbl,.btn,.field > span:not(.inp),.badge,summary,.jname,
 .meter.off{text-transform:none;letter-spacing:normal}
 .card-head h2{font-size:13px;font-weight:600}
 .brand-sub{font-size:11px;font-weight:500;letter-spacing:.02em}
 .conn{font-size:12px}
-.lbl,.sub h3,summary,.field > span:not(.inp){font-size:12px;font-weight:600}
+.lbl,summary,.field > span:not(.inp){font-size:12px;font-weight:600}
 .btn{font-size:12.5px;font-weight:600}
 .btn.sm{font-size:12px}
 .badge{font-size:11px;font-weight:600}
@@ -47,7 +45,6 @@ input[type=range]::-moz-range-thumb{width:12px;height:20px}
 .btn.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
 
 .led.sim{background:var(--accent);box-shadow:0 0 6px var(--accent)}
-.badge.sim{color:var(--accent);border-color:var(--accent)}
 .run-chip{padding:3px 8px;font:700 10.5px var(--mono);color:var(--accent-ink);background:var(--accent);
   border-radius:var(--r);text-transform:none;letter-spacing:.04em}
 
@@ -75,7 +72,6 @@ input[type=range]::-moz-range-thumb{width:12px;height:20px}
 /* One panel: the sequence picked, its playback, its steps */
 #seq-pick{flex:1 1 140px;width:auto;min-width:0;height:26px}
 .seq-body,.seq-sec{display:flex;flex-direction:column;gap:8px;min-width:0}
-.seq-body[hidden]{display:none}
 .seq-sec{padding-top:8px;border-top:1px solid var(--line)}
 .seq-sec .sub{flex-wrap:nowrap;gap:8px}
 .seq-sec .sub .inp{width:64px}
@@ -114,7 +110,3 @@ fieldset:disabled .step-row{opacity:.75}
 .modal-back{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.45)}
 .modal{width:min(440px,calc(100% - 32px));box-shadow:var(--shadow)}
-
-kbd{display:inline-block;min-width:22px;margin-right:8px;padding:2px 6px;font:600 11px var(--mono);text-align:center;
-  color:var(--ink);background:var(--inset);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:var(--r)}
-.estop kbd{min-width:0;margin:0;color:inherit;background:none;border-bottom-width:1px}

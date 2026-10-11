@@ -7,8 +7,8 @@ import { loadLibrary } from './lib/library'
 import { installWebBridge } from './lib/webBridge'
 import { initConnection } from './views/connection'
 import { initControl } from './views/control'
-import { initPositions, showPositions } from './views/positions'
-import { initSequences, showSequences } from './views/sequences'
+import { initPositions } from './views/positions'
+import { initSequences } from './views/sequences'
 
 // The 3D view lies behind the panels: tell it how much of its width each
 // column covers. Below 900px the panels stack under the view instead.
@@ -57,8 +57,6 @@ async function main() {
   initSequences()
   await loadLibrary()
 
-  showPositions()
-  showSequences()
   layoutStage()
   const sizes = new ResizeObserver(layoutStage)
   document.querySelectorAll('#stage, .hud-col, #appbar').forEach(el => sizes.observe(el))

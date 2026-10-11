@@ -1,22 +1,21 @@
-// Simulated Movens robot: the same REST API as the ESP32 firmware, with
-// steppers that move in real time. Used by the app's simulation mode (when
-// no robot is connected) and by the stand-alone mock server (scripts/).
+// Simulated Movens robot: the part of the ESP32 firmware's REST API that the
+// app uses, with steppers that move in real time. Used by the app's simulation
+// mode (when no robot is connected) and by the stand-alone mock server (scripts/).
 
 import { forwardKinematics, inverseKinematics } from './kinematics'
 import { SERVO_MAX, SERVO_MIN, type JointCal } from './types'
 
 const N = 5
+const SPEED = 3000  // steps/s of a joint at full speed
 
 interface Joint {
   pos: number       // current steps (fractional while moving)
   target: number
-  speed: number     // configured steps/s
-  accel: number
   runSpeed: number  // speed of the move in progress
 }
 
 // Plausible calibration: 1/16 microstepping through belt / gear reductions
-export const SIM_CALIBRATION: JointCal[] = [
+const SIM_CALIBRATION: JointCal[] = [
   { spd: 44.44, home: 0, min: 0, max: 180, limits: true },
   { spd: -88.89, home: 0, min: -95, max: 95, limits: true },
   { spd: 71.11, home: 0, min: -140, max: 140, limits: true },
@@ -30,13 +29,11 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : N
 const isCal = (c: JointCal) => Math.abs(c.spd) > 1e-6
 const degToSteps = (c: JointCal, d: number) => Math.round((d - c.home) * c.spd)
 const stepsToDeg = (c: JointCal, s: number) => c.home + s / c.spd
-const validJoint = (j: unknown) => Number.isInteger(j) && (j as number) >= 1 && (j as number) <= N
 const ok = (data: any = { ok: true }): SimReply => ({ status: 200, data })
 const err = (status: number, error: string): SimReply => ({ status, data: { error } })
 
 export class SimRobot {
-  private joints: Joint[] = Array.from({ length: N }, () =>
-    ({ pos: 0, target: 0, speed: 3000, accel: 800, runSpeed: 3000 }))
+  private joints: Joint[] = Array.from({ length: N }, () => ({ pos: 0, target: 0, runSpeed: SPEED }))
   private cal: JointCal[]
   private servo = 1500
   private last: number
@@ -57,7 +54,6 @@ export class SimRobot {
     if (body === undefined) {
       if (path === '/status') return ok(this.status())
       if (path === '/calib') return ok(Object.fromEntries(this.cal.map((c, k) => ['j' + (k + 1), { ...c }])))
-      if (path === '/config') return ok(Object.fromEntries(this.joints.map((j, k) => ['j' + (k + 1), { speed: j.speed, accel: j.accel }])))
       return err(404, 'not found')
     }
     const fn = (this.post as Record<string, (b: any) => SimReply>)[path]
@@ -84,7 +80,7 @@ export class SimRobot {
     return Math.max(Math.min(a, b), Math.min(Math.max(a, b), t))
   }
 
-  private moveTo(i: number, target: number, speed = this.joints[i].speed) {
+  private moveTo(i: number, target: number, speed = SPEED) {
     this.joints[i].target = this.clampSteps(this.cal[i], Math.round(target))
     this.joints[i].runSpeed = Math.max(1, speed)
   }
@@ -92,11 +88,11 @@ export class SimRobot {
   // Like the firmware: all joints finish together, optionally slowed by scale
   private moveSync(targets: number[], scale = 1) {
     const times = targets.map((t, i) =>
-      Math.abs(this.clampSteps(this.cal[i], t) - this.joints[i].pos) / this.joints[i].speed)
+      Math.abs(this.clampSteps(this.cal[i], t) - this.joints[i].pos) / SPEED)
     const tMax = Math.max(...times)
     targets.forEach((t, i) => {
       const k = tMax > 0 && times[i] > 0 ? times[i] / tMax : 1
-      this.moveTo(i, t, this.joints[i].speed * k * scale)
+      this.moveTo(i, t, SPEED * k * scale)
     })
   }
 
@@ -132,53 +128,7 @@ export class SimRobot {
       return ok()
     },
     '/home': () => { this.joints.forEach((_, i) => this.moveTo(i, 0)); return ok() },
-    '/move': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      const j = this.joints[b.joint - 1]
-      this.moveTo(b.joint - 1, (this.moving(j) ? j.target : Math.round(j.pos)) + (b.steps | 0))
-      return ok()
-    },
-    '/moveto': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      this.moveTo(b.joint - 1, b.pos | 0)
-      return ok()
-    },
-    '/config': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      const j = this.joints[b.joint - 1]
-      if (b.speed > 0) j.speed = b.speed | 0
-      if (b.accel > 0) j.accel = b.accel | 0
-      return ok()
-    },
     '/servo': (b: any) => { this.servo = Math.max(SERVO_MIN, Math.min(SERVO_MAX, b.us | 0)); return ok() },
-    '/calib': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      const c = this.cal[b.joint - 1]
-      if (Number.isFinite(b.spd)) c.spd = b.spd
-      if (Number.isFinite(b.home)) c.home = b.home
-      if (Number.isFinite(b.min)) c.min = b.min
-      if (Number.isFinite(b.max)) c.max = b.max
-      if (Number.isFinite(b.limits)) c.limits = b.limits !== 0
-      if (c.min > c.max) [c.min, c.max] = [c.max, c.min]
-      return ok()
-    },
-    '/moveangle': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      if (!Number.isFinite(b.deg)) return err(400, 'missing deg')
-      const c = this.cal[b.joint - 1]
-      if (!isCal(c)) return err(409, 'joint not calibrated')
-      this.moveTo(b.joint - 1, degToSteps(c, b.deg))
-      return ok()
-    },
-    '/setpos': (b: any) => {
-      if (!validJoint(b.joint)) return err(404, 'joint not found')
-      if (!Number.isFinite(b.deg)) return err(400, 'missing deg')
-      const j = this.joints[b.joint - 1], c = this.cal[b.joint - 1]
-      if (this.moving(j)) return err(409, 'joint is moving')
-      if (!isCal(c) && Math.abs(b.deg - c.home) > 1e-3) return err(409, 'joint not calibrated')
-      j.pos = j.target = isCal(c) ? degToSteps(c, b.deg) : 0
-      return ok()
-    },
     '/movejoints': (b: any) => {
       const targets = this.joints.map(j => (this.moving(j) ? j.target : Math.round(j.pos)))
       let given = 0
@@ -201,22 +151,13 @@ export class SimRobot {
       const cur = this.degrees(true)
       if (!cur) return err(409, `joint ${this.cal.findIndex(c => !isCal(c)) + 1} not calibrated`)
       const t = { x: num(b.x), y: num(b.y), z: num(b.z), pitch: num(b.pitch), yaw: num(b.yaw) }
-      const planar = !Number.isFinite(t.yaw)
-      if (b.rel > 0) {
-        const base = forwardKinematics(cur)
-        t.x = base.x + (Number.isFinite(t.x) ? t.x : 0)
-        t.y = base.y + (Number.isFinite(t.y) ? t.y : 0)
-        t.z = base.z + (Number.isFinite(t.z) ? t.z : 0)
-        t.pitch = base.pitch + (Number.isFinite(t.pitch) ? t.pitch : 0)
-        if (!planar) t.yaw += base.yaw
-      }
       if (![t.x, t.y, t.z, t.pitch].every(Number.isFinite)) return err(400, 'x, y, z and pitch are required')
       const lo = this.cal.map(c => (c.limits ? c.min : -Infinity))
       const hi = this.cal.map(c => (c.limits ? c.max : Infinity))
-      const r = inverseKinematics({ ...t, yaw: planar ? null : t.yaw }, cur, lo, hi)
+      const r = inverseKinematics({ ...t, yaw: Number.isFinite(t.yaw) ? t.yaw : null }, cur, lo, hi)
       if (r.status === 'unreachable') return err(422, 'pose unreachable')
       if (r.status === 'limits') return err(422, 'pose outside joint limits')
-      if (!(b.dry > 0)) this.moveSync(r.deg.map((d, i) => degToSteps(this.cal[i], d)), this.speedScale(b))
+      this.moveSync(r.deg.map((d, i) => degToSteps(this.cal[i], d)), this.speedScale(b))
       return ok({ ok: true, deg: r.deg.map(d => +d.toFixed(2)) })
     }
   }

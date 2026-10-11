@@ -94,10 +94,6 @@ export function initPositions() {
   render()
 }
 
-export function showPositions() {
-  updatePreview()
-}
-
 /** Save the current arm position to the library */
 async function teachCurrent(): Promise<void> {
   if (state.status.j1 == null) return showToast('No position from the robot yet', 'err')

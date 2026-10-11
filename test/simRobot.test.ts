@@ -41,20 +41,20 @@ describe('SimRobot', () => {
 
   it('clamps to soft limits and stops on /stop', () => {
     const { robot, advance } = sim()
-    robot.handle('/moveangle', { joint: 2, deg: 500 })
+    robot.handle('/movejoints', { a2: 500 })
     advance(1000)
     robot.handle('/stop', {})
     const stopped = robot.handle('/status').data
     advance(5000)
     expect(robot.handle('/status').data.a2).toBe(stopped.a2)
-    robot.handle('/moveangle', { joint: 2, deg: 500 })
+    robot.handle('/movejoints', { a2: 500 })
     advance(120000)
     expect(robot.handle('/status').data.a2).toBeCloseTo(95, 0)   // J2 max
   })
 
   it('needs calibration for angles when uncalibrated', () => {
     const { robot } = sim(false)
-    expect(robot.handle('/moveangle', { joint: 1, deg: 10 }).status).toBe(409)
-    expect(robot.handle('/move', { joint: 1, steps: 100 }).status).toBe(200)
+    expect(robot.handle('/movejoints', { a1: 10 }).status).toBe(409)
+    expect(robot.handle('/movejoints', { j1: 100 }).status).toBe(200)
   })
 })
